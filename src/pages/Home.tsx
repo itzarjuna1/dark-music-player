@@ -23,18 +23,22 @@ const Home = () => {
 
   const fetchFeaturedTracks = async () => {
     try {
-      const response = await fetch('https://api.deezer.com/chart/0/tracks');
+      // Fetch popular tracks from iTunes API
+      const response = await fetch('https://itunes.apple.com/search?term=top+hits+2024&media=music&entity=song&limit=50');
       const data = await response.json();
       
-      const tracks: Track[] = data.data.slice(0, 12).map((track: any) => ({
-        id: track.id,
-        title: track.title,
-        artist: track.artist.name,
-        album: track.album.title,
-        cover: track.album.cover_xl,
-        preview: track.preview,
-        duration: track.duration,
-      }));
+      const tracks: Track[] = data.results
+        .filter((track: any) => track.previewUrl) // Only tracks with previews
+        .slice(0, 12)
+        .map((track: any) => ({
+          id: track.trackId,
+          title: track.trackName,
+          artist: track.artistName,
+          album: track.collectionName,
+          cover: track.artworkUrl100.replace('100x100', '600x600'),
+          preview: track.previewUrl,
+          duration: Math.floor(track.trackTimeMillis / 1000),
+        }));
 
       setFeaturedTracks(tracks);
     } catch (error) {

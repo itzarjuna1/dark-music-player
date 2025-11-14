@@ -28,18 +28,20 @@ const Search = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(searchQuery)}`);
+      const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchQuery)}&media=music&entity=song&limit=50`);
       const data = await response.json();
       
-      const tracks: Track[] = data.data.map((track: any) => ({
-        id: track.id,
-        title: track.title,
-        artist: track.artist.name,
-        album: track.album.title,
-        cover: track.album.cover_xl,
-        preview: track.preview,
-        duration: track.duration,
-      }));
+      const tracks: Track[] = data.results
+        .filter((track: any) => track.previewUrl) // Only tracks with previews
+        .map((track: any) => ({
+          id: track.trackId,
+          title: track.trackName,
+          artist: track.artistName,
+          album: track.collectionName,
+          cover: track.artworkUrl100.replace('100x100', '600x600'),
+          preview: track.previewUrl,
+          duration: Math.floor(track.trackTimeMillis / 1000),
+        }));
 
       setResults(tracks);
     } catch (error) {
