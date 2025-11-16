@@ -1,8 +1,19 @@
-import { Home, Search, Library, Music2 } from 'lucide-react';
+import { Home, Search, Library, Music2, LogOut, User } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const Sidebar = () => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
   const navItems = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/search', icon: Search, label: 'Search' },
@@ -34,13 +45,43 @@ const Sidebar = () => {
         </nav>
       </div>
 
-      <div className="mt-auto p-6">
-        <div className="glass rounded-lg p-4 border border-border">
-          <p className="text-xs text-muted-foreground mb-2">Create your first playlist</p>
-          <button className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-semibold hover:scale-105 smooth-transition">
-            Create Playlist
-          </button>
-        </div>
+      <div className="mt-auto p-6 space-y-4">
+        {user ? (
+          <>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-sidebar-accent">
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={user.user_metadata?.avatar_url} />
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  <User className="w-5 h-5" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-medium truncate">
+                  {user.user_metadata?.full_name || user.email?.split('@')[0]}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user.email}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleSignOut}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="default"
+            className="w-full"
+            onClick={() => navigate('/auth')}
+          >
+            Sign In
+          </Button>
+        )}
       </div>
     </aside>
   );
