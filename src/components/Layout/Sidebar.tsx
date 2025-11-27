@@ -26,7 +26,7 @@ const Sidebar = () => {
         <div className="flex items-center gap-2 mb-8">
           <Music2 className="w-8 h-8 text-primary" />
           <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            DARK MUSIC
+            MUSIFY
           </h1>
         </div>
 
