@@ -53,6 +53,45 @@ export type Database = {
         }
         Relationships: []
       }
+      play_history: {
+        Row: {
+          id: string
+          played_at: string
+          track_album: string
+          track_artist: string
+          track_cover: string
+          track_duration: number
+          track_id: number
+          track_preview: string
+          track_title: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          played_at?: string
+          track_album: string
+          track_artist: string
+          track_cover: string
+          track_duration: number
+          track_id: number
+          track_preview: string
+          track_title: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          played_at?: string
+          track_album?: string
+          track_artist?: string
+          track_cover?: string
+          track_duration?: number
+          track_id?: number
+          track_preview?: string
+          track_title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       playlist_tracks: {
         Row: {
           added_at: string

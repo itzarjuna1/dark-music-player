@@ -11,6 +11,7 @@ import Player from "@/components/Layout/Player";
 import Home from "./pages/Home";
 import Search from "./pages/Search";
 import Library from "./pages/Library";
+import History from "./pages/History";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -40,6 +41,7 @@ const App = () => (
                           <Route path="/" element={<Home />} />
                           <Route path="/search" element={<Search />} />
                           <Route path="/library" element={<Library />} />
+                          <Route path="/history" element={<History />} />
                           <Route path="/profile" element={<Profile />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
