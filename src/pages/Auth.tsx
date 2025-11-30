@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -20,10 +20,11 @@ const Auth = () => {
   const navigate = useNavigate();
 
   // Redirect if already logged in
-  if (user) {
-    navigate('/');
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +104,7 @@ const Auth = () => {
           <div className="flex justify-center mb-4">
             <Music className="w-12 h-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Welcome to DARK MUSIC</CardTitle>
+          <CardTitle className="text-2xl">Welcome to MUSIFY</CardTitle>
           <CardDescription>
             Sign in or create an account to continue
           </CardDescription>

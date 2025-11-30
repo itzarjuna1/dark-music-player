@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthContext';
 
 interface Track {
   id: number;
@@ -17,6 +19,8 @@ interface PlayerContextType {
   currentTime: number;
   duration: number;
   queue: Track[];
+  shuffle: boolean;
+  repeat: 'off' | 'one' | 'all';
   playTrack: (track: Track) => void;
   togglePlay: () => void;
   nextTrack: () => void;
@@ -24,20 +28,26 @@ interface PlayerContextType {
   setVolume: (volume: number) => void;
   seek: (time: number) => void;
   addToQueue: (track: Track) => void;
+  toggleShuffle: () => void;
+  toggleRepeat: () => void;
   dominantColor: string;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolumeState] = useState(0.7);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [queue, setQueue] = useState<Track[]>([]);
-  const [dominantColor, setDominantColor] = useState('280 80% 60%');
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState<'off' | 'one' | 'all'>('off');
+  const [dominantColor, setDominantColor] = useState('190 95% 50%');
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playHistory, setPlayHistory] = useState<number[]>([]);
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -53,7 +63,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       audioRef.current.addEventListener('ended', () => {
-        nextTrack();
+        handleTrackEnd();
       });
     }
   }, []);
@@ -69,6 +79,34 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       extractDominantColor(currentTrack.cover);
     }
   }, [currentTrack]);
+
+  const handleTrackEnd = () => {
+    if (repeat === 'one') {
+      audioRef.current?.play();
+    } else {
+      nextTrack();
+    }
+  };
+
+  const saveToHistory = async (track: Track) => {
+    if (!user || playHistory.includes(track.id)) return;
+
+    try {
+      await supabase.from('play_history').insert({
+        user_id: user.id,
+        track_id: track.id,
+        track_title: track.title,
+        track_artist: track.artist,
+        track_album: track.album,
+        track_cover: track.cover,
+        track_preview: track.preview,
+        track_duration: track.duration,
+      });
+      setPlayHistory(prev => [...prev, track.id]);
+    } catch (error) {
+      console.error('Error saving to history:', error);
+    }
+  };
 
   const extractDominantColor = async (imageUrl: string) => {
     try {
@@ -144,6 +182,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audioRef.current.play();
       setCurrentTrack(track);
       setIsPlaying(true);
+      saveToHistory(track);
     }
   };
 
@@ -159,20 +198,34 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const nextTrack = () => {
-    if (queue.length > 0) {
-      const nextIndex = queue.findIndex(t => t.id === currentTrack?.id) + 1;
-      if (nextIndex < queue.length) {
-        playTrack(queue[nextIndex]);
-      }
+    if (queue.length === 0) return;
+
+    const currentIndex = queue.findIndex(t => t.id === currentTrack?.id);
+    let nextIndex;
+
+    if (shuffle) {
+      nextIndex = Math.floor(Math.random() * queue.length);
+    } else if (repeat === 'all' && currentIndex === queue.length - 1) {
+      nextIndex = 0;
+    } else {
+      nextIndex = currentIndex + 1;
+    }
+
+    if (nextIndex < queue.length) {
+      playTrack(queue[nextIndex]);
     }
   };
 
   const previousTrack = () => {
-    if (queue.length > 0) {
-      const prevIndex = queue.findIndex(t => t.id === currentTrack?.id) - 1;
-      if (prevIndex >= 0) {
-        playTrack(queue[prevIndex]);
-      }
+    if (queue.length === 0) return;
+
+    const currentIndex = queue.findIndex(t => t.id === currentTrack?.id);
+    const prevIndex = currentIndex - 1;
+
+    if (prevIndex >= 0) {
+      playTrack(queue[prevIndex]);
+    } else if (repeat === 'all') {
+      playTrack(queue[queue.length - 1]);
     }
   };
 
@@ -191,6 +244,18 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setQueue(prev => [...prev, track]);
   };
 
+  const toggleShuffle = () => {
+    setShuffle(prev => !prev);
+  };
+
+  const toggleRepeat = () => {
+    setRepeat(prev => {
+      if (prev === 'off') return 'all';
+      if (prev === 'all') return 'one';
+      return 'off';
+    });
+  };
+
   return (
     <PlayerContext.Provider
       value={{
@@ -200,6 +265,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         currentTime,
         duration,
         queue,
+        shuffle,
+        repeat,
         playTrack,
         togglePlay,
         nextTrack,
@@ -207,6 +274,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setVolume,
         seek,
         addToQueue,
+        toggleShuffle,
+        toggleRepeat,
         dominantColor,
       }}
     >
