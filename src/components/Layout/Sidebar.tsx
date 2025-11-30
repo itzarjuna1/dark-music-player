@@ -1,4 +1,4 @@
-import { Home, Search, Library, Music2, LogOut, User } from 'lucide-react';
+import { Home, Search, Library, Music2, LogOut, User, Settings } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ const Sidebar = () => {
     { to: '/', icon: Home, label: 'Home' },
     { to: '/search', icon: Search, label: 'Search' },
     { to: '/library', icon: Library, label: 'Your Library' },
+    { to: '/profile', icon: Settings, label: 'Profile' },
   ];
 
   return (
