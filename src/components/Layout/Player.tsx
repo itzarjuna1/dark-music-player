@@ -1,7 +1,9 @@
 import { usePlayer } from '@/contexts/PlayerContext';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
+import { useFavorites } from '@/hooks/useFavorites';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, Shuffle, Repeat, Repeat1, List } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 const Player = () => {
   const {
@@ -10,14 +12,21 @@ const Player = () => {
     volume,
     currentTime,
     duration,
+    shuffle,
+    repeat,
+    queue,
     togglePlay,
     nextTrack,
     previousTrack,
     setVolume,
     seek,
+    toggleShuffle,
+    toggleRepeat,
   } = usePlayer();
 
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [showVolume, setShowVolume] = useState(false);
+  const [showQueue, setShowQueue] = useState(false);
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
@@ -29,6 +38,8 @@ const Player = () => {
     return null;
   }
 
+  const favorite = isFavorite(currentTrack.id);
+
   return (
     <footer className="fixed bottom-0 left-0 right-0 h-24 bg-player border-t border-border glass z-50">
       <div className="h-full px-4 flex items-center justify-between gap-4">
@@ -37,17 +48,36 @@ const Player = () => {
           <img
             src={currentTrack.cover}
             alt={currentTrack.title}
-            className="w-14 h-14 rounded-lg object-cover"
+            className="w-14 h-14 rounded-lg object-cover animate-fade-in"
           />
           <div className="min-w-0 flex-1">
             <p className="font-semibold truncate">{currentTrack.title}</p>
             <p className="text-sm text-muted-foreground truncate">{currentTrack.artist}</p>
           </div>
+          <button
+            onClick={() => toggleFavorite(currentTrack)}
+            className={cn(
+              "text-muted-foreground hover:text-primary smooth-transition",
+              favorite && "text-primary"
+            )}
+          >
+            <Heart className={cn("w-5 h-5", favorite && "fill-current")} />
+          </button>
         </div>
 
         {/* Player Controls */}
         <div className="flex-1 flex flex-col items-center gap-2 max-w-2xl">
           <div className="flex items-center gap-4">
+            <button
+              onClick={toggleShuffle}
+              className={cn(
+                "text-muted-foreground hover:text-foreground smooth-transition",
+                shuffle && "text-primary"
+              )}
+            >
+              <Shuffle className="w-4 h-4" />
+            </button>
+            
             <button
               onClick={previousTrack}
               className="text-muted-foreground hover:text-foreground smooth-transition"
@@ -68,6 +98,16 @@ const Player = () => {
             >
               <SkipForward className="w-5 h-5" />
             </button>
+
+            <button
+              onClick={toggleRepeat}
+              className={cn(
+                "text-muted-foreground hover:text-foreground smooth-transition",
+                repeat !== 'off' && "text-primary"
+              )}
+            >
+              {repeat === 'one' ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
+            </button>
           </div>
 
           <div className="w-full flex items-center gap-2">
@@ -87,8 +127,18 @@ const Player = () => {
           </div>
         </div>
 
-        {/* Volume Control */}
-        <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+        {/* Volume & Queue Controls */}
+        <div className="flex items-center gap-3 min-w-0 flex-1 justify-end">
+          <button
+            onClick={() => setShowQueue(!showQueue)}
+            className={cn(
+              "text-muted-foreground hover:text-foreground smooth-transition",
+              showQueue && "text-primary"
+            )}
+          >
+            <List className="w-5 h-5" />
+          </button>
+
           <button
             onClick={() => setShowVolume(!showVolume)}
             className="text-muted-foreground hover:text-foreground smooth-transition"
@@ -96,7 +146,7 @@ const Player = () => {
             {volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
           </button>
           {showVolume && (
-            <div className="w-24">
+            <div className="w-24 animate-fade-in">
               <Slider
                 value={[volume]}
                 max={1}
@@ -107,6 +157,33 @@ const Player = () => {
           )}
         </div>
       </div>
+
+      {/* Queue Panel */}
+      {showQueue && (
+        <div className="absolute bottom-24 right-4 w-80 max-h-96 bg-card border border-border rounded-lg shadow-lg overflow-auto animate-slide-in-right">
+          <div className="p-4">
+            <h3 className="font-semibold mb-3">Queue ({queue.length})</h3>
+            <div className="space-y-2">
+              {queue.map((track, index) => (
+                <div
+                  key={`${track.id}-${index}`}
+                  className={cn(
+                    "flex items-center gap-3 p-2 rounded-md hover:bg-secondary smooth-transition",
+                    currentTrack?.id === track.id && "bg-secondary"
+                  )}
+                >
+                  <span className="text-xs text-muted-foreground w-4">{index + 1}</span>
+                  <img src={track.cover} alt={track.title} className="w-10 h-10 rounded" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">{track.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </footer>
   );
 };
