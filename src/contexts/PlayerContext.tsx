@@ -92,7 +92,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!user || playHistory.includes(track.id)) return;
 
     try {
-      await supabase.from('play_history').insert({
+      await supabase.from('play_history' as any).insert({
         user_id: user.id,
         track_id: track.id,
         track_title: track.title,

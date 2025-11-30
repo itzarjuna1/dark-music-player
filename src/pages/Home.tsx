@@ -15,7 +15,7 @@ interface Track {
 const Home = () => {
   const [featuredTracks, setFeaturedTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
-  const { dominantColor } = usePlayer();
+  const { dominantColor, addToQueue } = usePlayer();
 
   useEffect(() => {
     fetchFeaturedTracks();
@@ -41,6 +41,9 @@ const Home = () => {
         }));
 
       setFeaturedTracks(tracks);
+      
+      // Auto-add tracks to queue for seamless playback
+      tracks.forEach(track => addToQueue(track));
     } catch (error) {
       console.error('Error fetching tracks:', error);
     } finally {
