@@ -92,7 +92,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!user || playHistory.includes(track.id)) return;
 
     try {
-      await supabase.from('play_history' as any).insert({
+      const { error } = await (supabase as any).from('play_history').insert({
         user_id: user.id,
         track_id: track.id,
         track_title: track.title,
@@ -102,6 +102,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         track_preview: track.preview,
         track_duration: track.duration,
       });
+      
+      if (error) throw error;
       setPlayHistory(prev => [...prev, track.id]);
     } catch (error) {
       console.error('Error saving to history:', error);

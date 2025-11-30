@@ -33,15 +33,15 @@ const History = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('play_history' as any)
+      const { data, error } = await (supabase as any)
+        .from('play_history')
         .select('*')
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
-      setHistory((data || []) as unknown as HistoryTrack[]);
+      setHistory(data || []);
     } catch (error) {
       console.error('Error loading history:', error);
     } finally {
