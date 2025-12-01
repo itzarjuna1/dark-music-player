@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { Search as SearchIcon } from 'lucide-react';
+import { Search as SearchIcon, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import TrackCard from '@/components/TrackCard';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Track {
   id: number;
@@ -17,6 +20,27 @@ const Search = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
+  const [smartSearchEnabled, setSmartSearchEnabled] = useState(false);
+
+  const handleSmartSearch = async (naturalQuery: string) => {
+    if (!naturalQuery || naturalQuery.length < 3) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('smart-search', {
+        body: { query: naturalQuery }
+      });
+
+      if (error) throw error;
+      
+      await handleSearch(data.searchTerm);
+      toast.success(`Searching for: ${data.searchTerm}`);
+    } catch (error) {
+      console.error('Error with smart search:', error);
+      toast.error('Smart search failed, using regular search');
+      await handleSearch(naturalQuery);
+    }
+  };
 
   const handleSearch = async (searchQuery: string) => {
     setQuery(searchQuery);
@@ -52,19 +76,39 @@ const Search = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto pb-32 p-8">
+    <div className="flex-1 overflow-y-auto pb-32 p-8 animate-fade-in">
       <div className="max-w-2xl mb-8">
-        <h1 className="text-4xl font-bold mb-6">Search</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-4xl font-bold gradient-text">Search</h1>
+          <Button
+            onClick={() => setSmartSearchEnabled(!smartSearchEnabled)}
+            variant={smartSearchEnabled ? 'default' : 'outline'}
+            className="hover-glow"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Smart Search
+          </Button>
+        </div>
         <div className="relative">
           <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="What do you want to listen to?"
+            placeholder={smartSearchEnabled ? "Try: 'songs that make me happy' or 'music for studying'" : "What do you want to listen to?"}
             value={query}
             onChange={(e) => handleSearch(e.target.value)}
-            className="pl-12 h-12 bg-secondary border-border text-lg"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && smartSearchEnabled && query) {
+                handleSmartSearch(query);
+              }
+            }}
+            className="pl-12 h-12 bg-card border-border text-lg glass hover-glow"
           />
         </div>
+        {smartSearchEnabled && (
+          <p className="text-sm text-muted-foreground mt-2">
+            💡 Use natural language! Try "workout music" or "relaxing jazz for studying"
+          </p>
+        )}
       </div>
 
       {loading ? (
