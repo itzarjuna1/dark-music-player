@@ -14,6 +14,8 @@ import Discover from "./pages/Discover";
 import Library from "./pages/Library";
 import History from "./pages/History";
 import Profile from "./pages/Profile";
+import Community from "./pages/Community";
+import Visualizer from "./pages/Visualizer";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -46,6 +48,8 @@ const App = () => (
                           <Route path="/discover" element={<Discover />} />
                           <Route path="/library" element={<Library />} />
                           <Route path="/history" element={<History />} />
+                          <Route path="/community" element={<Community />} />
+                          <Route path="/visualizer" element={<Visualizer />} />
                           <Route path="/profile" element={<Profile />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
