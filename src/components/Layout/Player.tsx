@@ -1,11 +1,13 @@
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, Shuffle, Repeat, Repeat1, List } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, Shuffle, Repeat, Repeat1, List, Maximize2 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 const Player = () => {
+  const navigate = useNavigate();
   const {
     currentTrack,
     isPlaying,
@@ -41,7 +43,7 @@ const Player = () => {
   const favorite = isFavorite(currentTrack.id);
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 h-24 bg-player border-t border-border glass z-50">
+    <footer className="fixed bottom-0 left-0 right-0 h-24 bg-player border-t border-border glass z-50 animate-slide-in-up">
       <div className="h-full px-4 flex items-center justify-between gap-4">
         {/* Track Info */}
         <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -129,6 +131,14 @@ const Player = () => {
 
         {/* Volume & Queue Controls */}
         <div className="flex items-center gap-3 min-w-0 flex-1 justify-end">
+          <button
+            onClick={() => navigate('/visualizer')}
+            className="text-muted-foreground hover:text-foreground smooth-transition hover-glow"
+            title="Open Visualizer"
+          >
+            <Maximize2 className="w-5 h-5" />
+          </button>
+
           <button
             onClick={() => setShowQueue(!showQueue)}
             className={cn(

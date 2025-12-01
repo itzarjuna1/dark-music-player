@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          id: string
+          message: string
+          room_id: string
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          message: string
+          room_id: string
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          message?: string
+          room_id?: string
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_rooms: {
+        Row: {
+          created_at: string
+          description: string | null
+          genre: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          genre?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          genre?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
           created_at: string
@@ -50,6 +106,27 @@ export type Database = {
           track_preview?: string
           track_title?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
         }
         Relationships: []
       }
@@ -91,6 +168,76 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      playlist_activity: {
+        Row: {
+          action: string
+          id: string
+          playlist_id: string
+          timestamp: string
+          track_id: number | null
+          track_title: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          id?: string
+          playlist_id: string
+          timestamp?: string
+          track_id?: number | null
+          track_title?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          id?: string
+          playlist_id?: string
+          timestamp?: string
+          track_id?: number | null
+          track_title?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_activity_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "playlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playlist_collaborators: {
+        Row: {
+          id: string
+          invited_at: string
+          playlist_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          invited_at?: string
+          playlist_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          invited_at?: string
+          playlist_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_collaborators_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "playlists"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       playlist_tracks: {
         Row: {
@@ -196,6 +343,39 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_activity: {
+        Row: {
+          action: string
+          id: string
+          timestamp: string
+          track_artist: string
+          track_cover: string
+          track_id: number
+          track_title: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          id?: string
+          timestamp?: string
+          track_artist: string
+          track_cover: string
+          track_id: number
+          track_title: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          id?: string
+          timestamp?: string
+          track_artist?: string
+          track_cover?: string
+          track_id?: number
+          track_title?: string
+          user_id?: string
         }
         Relationships: []
       }

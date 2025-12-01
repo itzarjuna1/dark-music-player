@@ -19,6 +19,7 @@ const Sidebar = () => {
     { to: '/search', icon: Search, label: 'Search' },
     { to: '/discover', icon: Sparkles, label: 'Discover' },
     { to: '/library', icon: Library, label: 'Your Library' },
+    { to: '/community', icon: Users, label: 'Community' },
     { to: '/history', icon: Clock, label: 'History' },
     { to: '/profile', icon: Settings, label: 'Profile' },
   ];
