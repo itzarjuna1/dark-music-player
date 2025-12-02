@@ -1,4 +1,4 @@
-import { Home, Search, Library, Music2, LogOut, User, Settings, Clock, Sparkles, Users } from 'lucide-react';
+import { Home, Search, Library, Music2, LogOut, User, Settings, Clock, Sparkles, Users, Crown } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ const Sidebar = () => {
     { to: '/library', icon: Library, label: 'Your Library' },
     { to: '/community', icon: Users, label: 'Community' },
     { to: '/history', icon: Clock, label: 'History' },
+    { to: '/premium', icon: Crown, label: 'Premium', highlight: true },
     { to: '/profile', icon: Settings, label: 'Profile' },
   ];
 
@@ -39,11 +40,13 @@ const Sidebar = () => {
             <NavLink
               key={item.to}
               to={item.to}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent smooth-transition"
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent smooth-transition ${
+                item.highlight ? 'bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30' : ''
+              }`}
               activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
             >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
+              <item.icon className={`w-5 h-5 ${item.highlight ? 'text-primary' : ''}`} />
+              <span className={`font-medium ${item.highlight ? 'gradient-text' : ''}`}>{item.label}</span>
             </NavLink>
           ))}
         </nav>
