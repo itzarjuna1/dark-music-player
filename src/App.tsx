@@ -16,6 +16,7 @@ import History from "./pages/History";
 import Profile from "./pages/Profile";
 import Community from "./pages/Community";
 import Visualizer from "./pages/Visualizer";
+import Premium from "./pages/Premium";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -50,6 +51,7 @@ const App = () => (
                           <Route path="/history" element={<History />} />
                           <Route path="/community" element={<Community />} />
                           <Route path="/visualizer" element={<Visualizer />} />
+                          <Route path="/premium" element={<Premium />} />
                           <Route path="/profile" element={<Profile />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>

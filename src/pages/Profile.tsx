@@ -147,17 +147,6 @@ const Profile = () => {
 
           <div className="space-y-6">
             <div>
-              <Label htmlFor="email" className="text-foreground">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={user?.email || ''}
-                disabled
-                className="bg-muted/50 border-border"
-              />
-            </div>
-
-            <div>
               <Label htmlFor="fullName" className="text-foreground">Display Name</Label>
               <Input
                 id="fullName"
