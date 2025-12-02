@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.smart-search]
 verify_jwt = true
+
+[functions.spotify-search]
+verify_jwt = false
