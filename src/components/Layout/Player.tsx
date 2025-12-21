@@ -1,6 +1,6 @@
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, Shuffle, Repeat, Repeat1, List, Maximize2, Music2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, Shuffle, Repeat, Repeat1, List, Maximize2, Music2, Mic2, X } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -44,151 +44,196 @@ const Player = () => {
 
   const favorite = isFavorite(currentTrack.id);
 
-  // Spotify-like Now Playing Card (Expanded View)
+  // Placeholder lyrics - in production, integrate with a lyrics API (Musixmatch, Genius, etc.)
+  const placeholderLyrics = [
+    "♪ Lyrics will appear here...",
+    "",
+    "To display real lyrics, connect to a",
+    "licensed lyrics API like Musixmatch or Genius.",
+    "",
+    `Now playing: ${currentTrack.title}`,
+    `By: ${currentTrack.artist}`,
+    "",
+    "♪ ♫ ♪ ♫ ♪",
+  ];
+
+  // Spotify-like Now Playing Card (Expanded View) - Transparent glassmorphic
   if (expanded) {
     return (
       <div 
-        className="fixed inset-0 z-50 flex items-center justify-center"
+        className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
         style={{
-          background: dominantColor 
-            ? `linear-gradient(180deg, ${dominantColor}40 0%, hsl(270 50% 10%) 100%)`
-            : 'linear-gradient(180deg, hsl(270 40% 20%) 0%, hsl(270 50% 10%) 100%)'
+          background: `linear-gradient(135deg, 
+            rgba(75, 70, 95, 0.85) 0%, 
+            rgba(90, 70, 120, 0.80) 25%,
+            rgba(60, 55, 85, 0.85) 50%,
+            rgba(100, 80, 130, 0.80) 75%,
+            rgba(70, 65, 100, 0.85) 100%)`,
+          backdropFilter: 'blur(20px)',
         }}
       >
         <button
           onClick={() => setExpanded(false)}
-          className="absolute top-4 right-4 text-foreground/70 hover:text-foreground p-2"
+          className="absolute top-6 right-6 text-foreground/70 hover:text-foreground p-2 rounded-full hover:bg-foreground/10 smooth-transition"
         >
-          ✕
+          <X className="w-6 h-6" />
         </button>
 
-        <div className="flex flex-col items-center max-w-md w-full px-8">
-          {/* Album Art */}
-          <div className="relative mb-8 group">
-            <div 
-              className="absolute inset-0 rounded-2xl blur-3xl opacity-60"
-              style={{ backgroundColor: dominantColor || 'hsl(193 100% 50%)' }}
-            />
-            <img
-              src={currentTrack.cover}
-              alt={currentTrack.title}
-              className="relative w-72 h-72 rounded-2xl object-cover shadow-2xl group-hover:scale-105 smooth-transition"
-            />
-            {isPlaying && (
-              <div className="absolute bottom-4 right-4 flex gap-1">
-                {[...Array(4)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-1 bg-primary rounded-full animate-pulse"
-                    style={{
-                      height: `${Math.random() * 16 + 8}px`,
-                      animationDelay: `${i * 0.1}s`
-                    }}
-                  />
-                ))}
+        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-8 max-w-5xl w-full px-8 py-12 overflow-y-auto max-h-full">
+          {/* Left Side - Album Art & Controls */}
+          <div className="flex flex-col items-center lg:w-1/2">
+            {/* Album Art */}
+            <div className="relative mb-8 group">
+              <div 
+                className="absolute inset-0 rounded-2xl blur-3xl opacity-40"
+                style={{ backgroundColor: dominantColor || 'hsl(270 60% 50%)' }}
+              />
+              <img
+                src={currentTrack.cover}
+                alt={currentTrack.title}
+                className="relative w-64 h-64 lg:w-72 lg:h-72 rounded-2xl object-cover shadow-2xl group-hover:scale-105 smooth-transition"
+              />
+              {isPlaying && (
+                <div className="absolute bottom-4 right-4 flex gap-1">
+                  {[...Array(4)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-primary rounded-full animate-pulse"
+                      style={{
+                        height: `${Math.random() * 16 + 8}px`,
+                        animationDelay: `${i * 0.1}s`
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Track Info */}
+            <div className="text-center mb-6 w-full">
+              <h2 className="text-2xl font-bold truncate">{currentTrack.title}</h2>
+              <p className="text-muted-foreground truncate">{currentTrack.artist}</p>
+              <p className="text-sm text-muted-foreground/70 truncate">{currentTrack.album}</p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full mb-4 max-w-sm">
+              <Slider
+                value={[currentTime]}
+                max={duration}
+                step={0.1}
+                onValueChange={([value]) => seek(value)}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Track Info */}
-          <div className="text-center mb-6 w-full">
-            <h2 className="text-2xl font-bold truncate">{currentTrack.title}</h2>
-            <p className="text-muted-foreground truncate">{currentTrack.artist}</p>
-            <p className="text-sm text-muted-foreground/70 truncate">{currentTrack.album}</p>
-          </div>
+            {/* Controls */}
+            <div className="flex items-center gap-6 mb-6">
+              <button
+                onClick={toggleShuffle}
+                className={cn(
+                  "text-muted-foreground hover:text-foreground smooth-transition",
+                  shuffle && "text-primary"
+                )}
+              >
+                <Shuffle className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={previousTrack}
+                className="text-foreground hover:scale-110 smooth-transition"
+              >
+                <SkipBack className="w-8 h-8 fill-current" />
+              </button>
+              
+              <button
+                onClick={togglePlay}
+                className="w-16 h-16 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-110 smooth-transition shadow-lg"
+              >
+                {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
+              </button>
+              
+              <button
+                onClick={nextTrack}
+                className="text-foreground hover:scale-110 smooth-transition"
+              >
+                <SkipForward className="w-8 h-8 fill-current" />
+              </button>
 
-          {/* Progress Bar */}
-          <div className="w-full mb-4">
-            <Slider
-              value={[currentTime]}
-              max={duration}
-              step={0.1}
-              onValueChange={([value]) => seek(value)}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground mt-1">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
+              <button
+                onClick={toggleRepeat}
+                className={cn(
+                  "text-muted-foreground hover:text-foreground smooth-transition",
+                  repeat !== 'off' && "text-primary"
+                )}
+              >
+                {repeat === 'one' ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
+              </button>
+            </div>
+
+            {/* Extra Controls */}
+            <div className="flex items-center gap-6">
+              <button
+                onClick={() => toggleFavorite(currentTrack)}
+                className={cn(
+                  "text-muted-foreground hover:text-primary smooth-transition",
+                  favorite && "text-primary"
+                )}
+              >
+                <Heart className={cn("w-6 h-6", favorite && "fill-current")} />
+              </button>
+
+              <button
+                onClick={() => navigate('/visualizer')}
+                className="text-muted-foreground hover:text-foreground smooth-transition"
+              >
+                <Maximize2 className="w-6 h-6" />
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
+                  className="text-muted-foreground hover:text-foreground smooth-transition"
+                >
+                  {volume === 0 ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
+                </button>
+                <Slider
+                  value={[volume]}
+                  max={1}
+                  step={0.01}
+                  onValueChange={([value]) => setVolume(value)}
+                  className="w-24"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="flex items-center gap-6 mb-8">
-            <button
-              onClick={toggleShuffle}
-              className={cn(
-                "text-muted-foreground hover:text-foreground smooth-transition",
-                shuffle && "text-primary"
-              )}
-            >
-              <Shuffle className="w-5 h-5" />
-            </button>
-            
-            <button
-              onClick={previousTrack}
-              className="text-foreground hover:scale-110 smooth-transition"
-            >
-              <SkipBack className="w-8 h-8 fill-current" />
-            </button>
-            
-            <button
-              onClick={togglePlay}
-              className="w-16 h-16 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-110 smooth-transition btn-rgb"
-            >
-              {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
-            </button>
-            
-            <button
-              onClick={nextTrack}
-              className="text-foreground hover:scale-110 smooth-transition"
-            >
-              <SkipForward className="w-8 h-8 fill-current" />
-            </button>
-
-            <button
-              onClick={toggleRepeat}
-              className={cn(
-                "text-muted-foreground hover:text-foreground smooth-transition",
-                repeat !== 'off' && "text-primary"
-              )}
-            >
-              {repeat === 'one' ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
-            </button>
-          </div>
-
-          {/* Extra Controls */}
-          <div className="flex items-center gap-6">
-            <button
-              onClick={() => toggleFavorite(currentTrack)}
-              className={cn(
-                "text-muted-foreground hover:text-primary smooth-transition",
-                favorite && "text-primary"
-              )}
-            >
-              <Heart className={cn("w-6 h-6", favorite && "fill-current")} />
-            </button>
-
-            <button
-              onClick={() => navigate('/visualizer')}
-              className="text-muted-foreground hover:text-foreground smooth-transition"
-            >
-              <Maximize2 className="w-6 h-6" />
-            </button>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
-                className="text-muted-foreground hover:text-foreground smooth-transition"
-              >
-                {volume === 0 ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
-              </button>
-              <Slider
-                value={[volume]}
-                max={1}
-                step={0.01}
-                onValueChange={([value]) => setVolume(value)}
-                className="w-24"
-              />
+          {/* Right Side - Lyrics */}
+          <div className="lg:w-1/2 w-full">
+            <div className="rounded-2xl p-6 h-full min-h-[400px] bg-foreground/5 border border-foreground/10 backdrop-blur-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Mic2 className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">Lyrics</h3>
+              </div>
+              <div className="space-y-3 text-center lg:text-left">
+                {placeholderLyrics.map((line, index) => (
+                  <p 
+                    key={index} 
+                    className={cn(
+                      "text-lg leading-relaxed smooth-transition",
+                      index === 0 || index === placeholderLyrics.length - 1 
+                        ? "text-primary font-medium" 
+                        : "text-foreground/80"
+                    )}
+                  >
+                    {line || <br />}
+                  </p>
+                ))}
+              </div>
             </div>
           </div>
         </div>
