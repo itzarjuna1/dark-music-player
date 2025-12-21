@@ -1,13 +1,32 @@
+import { useState, useEffect } from 'react';
 import { Home, Search, Library, Music2, LogOut, User, Settings, Clock, Sparkles, Users, Crown } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { supabase } from '@/integrations/supabase/client';
 
 const Sidebar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      loadProfile();
+    }
+  }, [user]);
+
+  const loadProfile = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('full_name, avatar_url')
+      .eq('id', user.id)
+      .single();
+    if (data) setProfile(data);
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -24,6 +43,9 @@ const Sidebar = () => {
     { to: '/premium', icon: Crown, label: 'Premium', highlight: true },
     { to: '/profile', icon: Settings, label: 'Profile' },
   ];
+
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url;
 
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
@@ -57,18 +79,13 @@ const Sidebar = () => {
           <>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-sidebar-accent">
               <Avatar className="w-10 h-10">
-                <AvatarImage src={user.user_metadata?.avatar_url} />
+                <AvatarImage src={avatarUrl || undefined} />
                 <AvatarFallback className="bg-primary text-primary-foreground">
                   <User className="w-5 h-5" />
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-medium truncate">
-                  {user.user_metadata?.full_name || user.email?.split('@')[0]}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user.email}
-                </p>
+                <p className="text-sm font-medium truncate">{displayName}</p>
               </div>
             </div>
             <Button
