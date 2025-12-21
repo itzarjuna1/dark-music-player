@@ -334,4 +334,22 @@ All colors MUST be HSL.
       0 10px 30px hsl(193 100% 50% / 0.2),
       0 0 60px hsl(320 100% 60% / 0.1);
   }
+
+  /* Shimmer animation for buttons */
+  @keyframes shimmer {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 3s ease infinite;
+  }
 }

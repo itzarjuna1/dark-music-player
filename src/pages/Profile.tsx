@@ -4,14 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Camera, Upload } from 'lucide-react';
+import { User, Camera, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Profile = () => {
   const { user } = useAuth();
   const [fullName, setFullName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [bio, setBio] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,6 +38,7 @@ const Profile = () => {
 
       setFullName(data?.full_name || '');
       setAvatarUrl(data?.avatar_url || '');
+      setBio(data?.bio || '');
     } catch (error) {
       console.error('Error loading profile:', error);
     }
@@ -96,6 +99,7 @@ const Profile = () => {
         .update({
           full_name: fullName,
           avatar_url: avatarUrl,
+          bio: bio,
         })
         .eq('id', user.id);
 
@@ -142,7 +146,19 @@ const Profile = () => {
                 className="hidden"
               />
             </div>
-            <p className="text-muted-foreground text-sm mt-4">Click to upload a new photo</p>
+            
+            {/* Display Name */}
+            {fullName && (
+              <h2 className="text-2xl font-bold mt-4 gradient-text">{fullName}</h2>
+            )}
+            
+            {/* Email Display */}
+            <div className="flex items-center gap-2 mt-2 text-muted-foreground">
+              <Mail className="w-4 h-4" />
+              <span className="text-sm">{user?.email}</span>
+            </div>
+            
+            <p className="text-muted-foreground text-sm mt-2">Click avatar to upload a new photo</p>
           </div>
 
           <div className="space-y-6">
@@ -171,10 +187,23 @@ const Profile = () => {
               <p className="text-muted-foreground text-xs mt-1">Or paste a URL directly</p>
             </div>
 
+            <div>
+              <Label htmlFor="bio" className="text-foreground">Bio</Label>
+              <Textarea
+                id="bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell us a little about yourself..."
+                className="border-border focus:border-primary min-h-[100px] resize-none"
+                maxLength={500}
+              />
+              <p className="text-muted-foreground text-xs mt-1">{bio.length}/500 characters</p>
+            </div>
+
             <Button
               onClick={updateProfile}
               disabled={loading}
-              className="w-full btn-rgb"
+              className="w-full bg-gradient-to-r from-emerald-500 via-green-400 to-teal-500 hover:from-emerald-400 hover:via-green-300 hover:to-teal-400 text-white font-semibold shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 transition-all duration-300 hover:scale-[1.02] animate-shimmer"
             >
               {loading ? 'Saving...' : 'Save Changes'}
             </Button>
