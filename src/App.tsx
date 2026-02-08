@@ -20,7 +20,7 @@ import Premium from "./pages/Premium";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
-import AnimatedBackground from "./components/AnimatedBackground";
+import StaticBackground from "./components/StaticBackground";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +40,7 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <div className="flex h-screen overflow-hidden relative">
-                      <AnimatedBackground />
+                      <StaticBackground />
                       <Sidebar />
                       <main className="flex-1 flex flex-col overflow-hidden relative z-10">
                         <Routes>
