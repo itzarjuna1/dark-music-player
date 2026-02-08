@@ -22,7 +22,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import StaticBackground from "./components/StaticBackground";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient(); // force rebuild
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
