@@ -110,6 +110,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const sendTelegramLog = async (track: Track) => {
+    try {
+      await supabase.functions.invoke('telegram-log', {
+        body: {
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          cover: track.cover,
+          duration: track.duration,
+        },
+      });
+    } catch (error) {
+      console.error('Error sending Telegram log:', error);
+    }
+  };
+
   const extractDominantColor = async (imageUrl: string) => {
     try {
       const img = new Image();
@@ -185,6 +201,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCurrentTrack(track);
       setIsPlaying(true);
       saveToHistory(track);
+      sendTelegramLog(track);
     }
   };
 

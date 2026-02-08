@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.jamendo-search]
 verify_jwt = false
+
+[functions.telegram-log]
+verify_jwt = false
