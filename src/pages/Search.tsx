@@ -1,34 +1,42 @@
 import { useState } from 'react';
-import { Search as SearchIcon, Sparkles, Music, Radio } from 'lucide-react';
+import { Search as SearchIcon, Sparkles, Music, Radio, Youtube } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import TrackCard from '@/components/TrackCard';
+import YouTubePlayer from '@/components/YouTubePlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useJamendoSearch, JamendoTrack } from '@/hooks/useJamendoSearch';
+import { useJamendoSearch } from '@/hooks/useJamendoSearch';
+import { YouTubeTrack } from '@/hooks/useYouTubeSearch';
 import { Badge } from '@/components/ui/badge';
 
 interface Track {
-  id: number;
+  id: number | string;
   title: string;
   artist: string;
   album: string;
   cover: string;
   preview: string;
   duration: number;
-  source?: 'itunes' | 'jamendo';
+  source?: 'itunes' | 'jamendo' | 'youtube';
+  videoId?: string;
 }
 
-type SearchSource = 'itunes' | 'jamendo' | 'both';
+type SearchSource = 'itunes' | 'jamendo' | 'youtube' | 'all';
 
 const Search = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
   const [smartSearchEnabled, setSmartSearchEnabled] = useState(false);
-  const [searchSource, setSearchSource] = useState<SearchSource>('both');
+  const [searchSource, setSearchSource] = useState<SearchSource>('youtube');
   
-  const { tracks: jamendoTracks, loading: jamendoLoading, searchJamendo } = useJamendoSearch();
+  // YouTube Player state
+  const [youtubeTrack, setYoutubeTrack] = useState<YouTubeTrack | null>(null);
+  const [youtubeQueue, setYoutubeQueue] = useState<YouTubeTrack[]>([]);
+  const [currentYoutubeIndex, setCurrentYoutubeIndex] = useState(0);
+  
+  const { loading: jamendoLoading } = useJamendoSearch();
 
   const handleSmartSearch = async (naturalQuery: string) => {
     if (!naturalQuery || naturalQuery.length < 3) return;
@@ -63,8 +71,38 @@ const Search = () => {
     try {
       const promises: Promise<Track[]>[] = [];
       
+      // Search YouTube (full songs via embedded player!)
+      if (searchSource === 'youtube' || searchSource === 'all') {
+        promises.push(
+          supabase.functions.invoke('youtube-search', {
+            body: { query: searchQuery, limit: 30 }
+          })
+            .then(({ data, error }) => {
+              if (error) throw error;
+              const ytTracks = (data.tracks || []).map((track: any) => ({
+                id: track.id,
+                title: track.title,
+                artist: track.artist,
+                album: 'YouTube',
+                cover: track.thumbnail,
+                preview: `https://youtube.com/watch?v=${track.id}`,
+                duration: track.duration,
+                source: 'youtube' as const,
+                videoId: track.id,
+              }));
+              // Store for queue
+              setYoutubeQueue(data.tracks || []);
+              return ytTracks;
+            })
+            .catch((err) => {
+              console.error('YouTube search error:', err);
+              return [];
+            })
+        );
+      }
+      
       // Search iTunes (30-second previews)
-      if (searchSource === 'itunes' || searchSource === 'both') {
+      if (searchSource === 'itunes' || searchSource === 'all') {
         promises.push(
           fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchQuery)}&media=music&entity=song&limit=30`)
             .then(res => res.json())
@@ -87,7 +125,7 @@ const Search = () => {
       }
       
       // Search Jamendo (full tracks!)
-      if (searchSource === 'jamendo' || searchSource === 'both') {
+      if (searchSource === 'jamendo' || searchSource === 'all') {
         promises.push(
           supabase.functions.invoke('jamendo-search', {
             body: { query: searchQuery, limit: 30 }
@@ -106,15 +144,17 @@ const Search = () => {
       const allResults = await Promise.all(promises);
       const combinedResults = allResults.flat();
       
-      // Interleave results if both sources are used
-      if (searchSource === 'both' && allResults.length === 2) {
-        const [itunesResults, jamendoResults] = allResults;
+      // Interleave results if multiple sources are used
+      if (searchSource === 'all' && allResults.length > 1) {
         const interleaved: Track[] = [];
-        const maxLength = Math.max(itunesResults.length, jamendoResults.length);
+        const maxLength = Math.max(...allResults.map(arr => arr.length));
         
         for (let i = 0; i < maxLength; i++) {
-          if (i < jamendoResults.length) interleaved.push(jamendoResults[i]);
-          if (i < itunesResults.length) interleaved.push(itunesResults[i]);
+          for (const sourceResults of allResults) {
+            if (i < sourceResults.length) {
+              interleaved.push(sourceResults[i]);
+            }
+          }
         }
         setResults(interleaved);
       } else {
@@ -125,6 +165,37 @@ const Search = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTrackClick = (track: Track) => {
+    if (track.source === 'youtube' && track.videoId) {
+      const ytTrack: YouTubeTrack = {
+        id: track.videoId,
+        title: track.title,
+        artist: track.artist,
+        album: 'YouTube',
+        thumbnail: track.cover,
+        duration: track.duration,
+        source: 'youtube',
+      };
+      setYoutubeTrack(ytTrack);
+      const idx = youtubeQueue.findIndex(t => t.id === track.videoId);
+      setCurrentYoutubeIndex(idx >= 0 ? idx : 0);
+    }
+  };
+
+  const handleYoutubeNext = () => {
+    if (youtubeQueue.length === 0) return;
+    const nextIndex = (currentYoutubeIndex + 1) % youtubeQueue.length;
+    setCurrentYoutubeIndex(nextIndex);
+    setYoutubeTrack(youtubeQueue[nextIndex]);
+  };
+
+  const handleYoutubePrevious = () => {
+    if (youtubeQueue.length === 0) return;
+    const prevIndex = currentYoutubeIndex === 0 ? youtubeQueue.length - 1 : currentYoutubeIndex - 1;
+    setCurrentYoutubeIndex(prevIndex);
+    setYoutubeTrack(youtubeQueue[prevIndex]);
   };
 
   const isLoading = loading || jamendoLoading;
@@ -151,11 +222,21 @@ const Search = () => {
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <span className="text-sm text-muted-foreground">Source:</span>
           <Button
-            onClick={() => { setSearchSource('both'); if (query.length >= 2) handleSearch(query); }}
-            variant={searchSource === 'both' ? 'default' : 'outline'}
+            onClick={() => { setSearchSource('all'); if (query.length >= 2) handleSearch(query); }}
+            variant={searchSource === 'all' ? 'default' : 'outline'}
             size="sm"
           >
             All
+          </Button>
+          <Button
+            onClick={() => { setSearchSource('youtube'); if (query.length >= 2) handleSearch(query); }}
+            variant={searchSource === 'youtube' ? 'default' : 'outline'}
+            size="sm"
+            className="gap-2"
+          >
+            <Youtube className="w-4 h-4" />
+            YouTube
+            <Badge variant="secondary" className="bg-destructive/20 text-destructive text-xs">Full Song</Badge>
           </Button>
           <Button
             onClick={() => { setSearchSource('jamendo'); if (query.length >= 2) handleSearch(query); }}
@@ -165,7 +246,7 @@ const Search = () => {
           >
             <Radio className="w-4 h-4" />
             Jamendo
-            <Badge variant="secondary" className="bg-green-500/20 text-green-400 text-xs">Full Track</Badge>
+            <Badge variant="secondary" className="bg-primary/20 text-primary text-xs">Full Track</Badge>
           </Button>
           <Button
             onClick={() => { setSearchSource('itunes'); if (query.length >= 2) handleSearch(query); }}
@@ -199,8 +280,13 @@ const Search = () => {
             💡 Use natural language! Try "workout music" or "relaxing jazz for studying"
           </p>
         )}
+        {searchSource === 'youtube' && (
+          <p className="text-sm text-destructive mt-2">
+            🎬 YouTube plays full songs via embedded player!
+          </p>
+        )}
         {searchSource === 'jamendo' && (
-          <p className="text-sm text-green-400 mt-2">
+          <p className="text-sm text-primary mt-2">
             🎵 Jamendo tracks are royalty-free and play in full!
           </p>
         )}
@@ -226,15 +312,37 @@ const Search = () => {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             {results.map((track, index) => (
-              <div key={`${track.source}-${track.id}-${index}`} className="relative">
+              <div 
+                key={`${track.source}-${track.id}-${index}`} 
+                className="relative"
+                onClick={() => track.source === 'youtube' ? handleTrackClick(track) : undefined}
+              >
+                {track.source === 'youtube' && (
+                  <Badge 
+                    className="absolute top-2 left-2 z-10 bg-destructive/90 text-destructive-foreground text-xs"
+                  >
+                    YouTube
+                  </Badge>
+                )}
                 {track.source === 'jamendo' && (
                   <Badge 
-                    className="absolute top-2 left-2 z-10 bg-green-500/90 text-white text-xs"
+                    className="absolute top-2 left-2 z-10 bg-primary/90 text-primary-foreground text-xs"
                   >
                     Full Track
                   </Badge>
                 )}
-                <TrackCard track={track} />
+                <TrackCard 
+                  track={{
+                    id: typeof track.id === 'string' ? parseInt(track.id.replace(/\D/g, '').slice(0, 8) || '0', 10) || Date.now() : track.id,
+                    title: track.title,
+                    artist: track.artist,
+                    album: track.album,
+                    cover: track.cover,
+                    preview: track.preview,
+                    duration: track.duration,
+                  }} 
+                  onCustomClick={track.source === 'youtube' ? () => handleTrackClick(track) : undefined}
+                />
               </div>
             ))}
           </div>
@@ -247,9 +355,22 @@ const Search = () => {
         <div className="text-center text-muted-foreground mt-12">
           <p>Start typing to search for music</p>
           <p className="text-sm mt-2">
-            Switch to <span className="text-green-400 font-medium">Jamendo</span> for free full-track playback!
+            Try <span className="text-destructive font-medium">YouTube</span> for full-length songs!
           </p>
         </div>
+      )}
+
+      {/* YouTube Player */}
+      {youtubeTrack && (
+        <YouTubePlayer
+          videoId={youtubeTrack.id}
+          title={youtubeTrack.title}
+          artist={youtubeTrack.artist}
+          thumbnail={youtubeTrack.thumbnail}
+          onClose={() => setYoutubeTrack(null)}
+          onNext={handleYoutubeNext}
+          onPrevious={handleYoutubePrevious}
+        />
       )}
     </div>
   );

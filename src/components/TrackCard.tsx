@@ -15,9 +15,10 @@ interface Track {
 
 interface TrackCardProps {
   track: Track;
+  onCustomClick?: () => void;
 }
 
-const TrackCard = ({ track }: TrackCardProps) => {
+const TrackCard = ({ track, onCustomClick }: TrackCardProps) => {
   const { playTrack, currentTrack, isPlaying } = usePlayer();
   const { isFavorite, toggleFavorite } = useFavorites();
   const isCurrentTrack = currentTrack?.id === track.id;
@@ -44,7 +45,7 @@ const TrackCard = ({ track }: TrackCardProps) => {
           <Heart className={cn("w-4 h-4", favorite && "fill-current")} />
         </button>
         <button
-          onClick={() => playTrack(track)}
+          onClick={() => onCustomClick ? onCustomClick() : playTrack(track)}
           className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 smooth-transition shadow-lg hover:scale-110 glow"
         >
           <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
