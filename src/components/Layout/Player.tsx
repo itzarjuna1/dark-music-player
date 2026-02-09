@@ -244,13 +244,7 @@ const Player = () => {
   // Mini Player Bar
   return (
     <footer 
-      className="fixed bottom-0 left-0 right-0 h-20 border-t border-border z-50"
-      style={{
-        background: dominantColor 
-          ? `linear-gradient(90deg, ${dominantColor}30 0%, hsl(270 60% 8% / 0.95) 50%, ${dominantColor}20 100%)`
-          : 'hsl(270 60% 8% / 0.95)',
-        backdropFilter: 'blur(20px)'
-      }}
+      className="fixed bottom-0 left-0 right-0 h-20 border-t border-border z-50 bg-card/95 backdrop-blur-xl"
     >
       <div className="h-full px-4 flex items-center justify-between gap-4">
         {/* Track Info - Clickable to expand */}
@@ -394,7 +388,7 @@ const Player = () => {
       {showQueue && (
         <div className="absolute bottom-20 right-4 w-80 max-h-96 bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl overflow-hidden animate-fade-in">
           <div className="p-4">
-            <h3 className="font-semibold mb-3 gradient-text">Queue ({queue.length})</h3>
+            <h3 className="font-semibold mb-3 text-foreground">Queue ({queue.length})</h3>
             <div className="space-y-2 max-h-72 overflow-y-auto">
               {queue.map((track, index) => (
                 <div

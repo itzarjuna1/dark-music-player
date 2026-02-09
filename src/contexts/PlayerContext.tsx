@@ -10,6 +10,7 @@ interface Track {
   cover: string;
   preview: string;
   duration: number;
+  videoId?: string;
 }
 
 interface PlayerContextType {
@@ -112,6 +113,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const sendTelegramLog = async (track: Track) => {
     try {
+      // Get user profile name for "played by"
+      let userName = user?.email?.split('@')[0] || 'Unknown';
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        if (profile?.full_name) userName = profile.full_name;
+      }
+
       await supabase.functions.invoke('telegram-log', {
         body: {
           title: track.title,
@@ -119,6 +131,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           album: track.album,
           cover: track.cover,
           duration: track.duration,
+          userName,
+          videoId: (track as any).videoId || null,
         },
       });
     } catch (error) {
@@ -195,14 +209,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const playTrack = (track: Track) => {
-    if (audioRef.current) {
+    setCurrentTrack(track);
+    setIsPlaying(true);
+    
+    // Only use HTML audio for non-YouTube tracks
+    if (audioRef.current && track.preview && !track.videoId) {
       audioRef.current.src = track.preview;
       audioRef.current.play();
-      setCurrentTrack(track);
-      setIsPlaying(true);
-      saveToHistory(track);
-      sendTelegramLog(track);
+    } else if (audioRef.current && track.videoId) {
+      // Pause any currently playing audio when switching to YouTube
+      audioRef.current.pause();
     }
+    
+    saveToHistory(track);
+    sendTelegramLog(track);
   };
 
   const togglePlay = () => {
