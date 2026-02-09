@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import WallpaperSettings from '@/components/WallpaperSettings';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const Sidebar = () => {
   const { user, signOut } = useAuth();
@@ -53,12 +54,15 @@ const Sidebar = () => {
       <div className="p-6">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">
-            <Music2 className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <Music2 className="w-8 h-8 text-foreground" />
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
               MUSIFY
             </h1>
           </div>
-          <WallpaperSettings />
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <WallpaperSettings />
+          </div>
         </div>
 
         <nav className="space-y-2">
@@ -72,7 +76,7 @@ const Sidebar = () => {
               activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
             >
               <item.icon className={`w-5 h-5 ${item.highlight ? 'text-primary' : ''}`} />
-              <span className={`font-medium ${item.highlight ? 'gradient-text' : ''}`}>{item.label}</span>
+              <span className="font-medium">{item.label}</span>
             </NavLink>
           ))}
         </nav>

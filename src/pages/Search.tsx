@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useJamendoSearch } from '@/hooks/useJamendoSearch';
 import { YouTubeTrack } from '@/hooks/useYouTubeSearch';
 import { Badge } from '@/components/ui/badge';
+import { usePlayer } from '@/contexts/PlayerContext';
 
 interface Track {
   id: number | string;
@@ -25,6 +26,7 @@ interface Track {
 type SearchSource = 'itunes' | 'jamendo' | 'youtube' | 'all';
 
 const Search = () => {
+  const { playTrack } = usePlayer();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
@@ -181,6 +183,18 @@ const Search = () => {
       setYoutubeTrack(ytTrack);
       const idx = youtubeQueue.findIndex(t => t.id === track.videoId);
       setCurrentYoutubeIndex(idx >= 0 ? idx : 0);
+
+      // Also update the PlayerContext so the bottom bar shows the track
+      playTrack({
+        id: typeof track.id === 'string' ? parseInt(track.id.replace(/\D/g, '').slice(0, 8) || '0', 10) || Date.now() : track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        cover: track.cover,
+        preview: '', // YouTube doesn't use audio preview
+        duration: track.duration,
+        videoId: track.videoId,
+      });
     }
   };
 
