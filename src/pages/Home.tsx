@@ -60,7 +60,7 @@ const Home = () => {
         }}
       >
         <div>
-          <h1 className="text-6xl font-bold mb-4">Welcome to MUSIFY</h1>
+          <h1 className="text-6xl font-bold mb-4">Welcome to UpperMoon Tunes</h1>
           <p className="text-xl text-foreground/80">
             Discover your sound. Experience music like never before.
           </p>

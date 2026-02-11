@@ -15,7 +15,7 @@ const Premium = () => {
     // Open UPI payment link
     const upiId = '9529024655@fam';
     const amount = '99'; // Premium price in INR
-    const name = 'MUSIFY Premium';
+    const name = 'UpperMoon Tunes Premium';
     const note = 'Premium Subscription';
     
     // UPI deep link format
@@ -43,7 +43,7 @@ const Premium = () => {
             <Crown className="w-10 h-10 text-primary-foreground" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">
-            MUSIFY Premium
+            UpperMoon Premium
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Unlock the full potential of your music experience with premium features
