@@ -167,4 +167,33 @@
   .gradient-text {
     @apply text-foreground;
   }
+
+  /* Smooth button press animation */
+  button, a {
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.15s ease,
+                background-color 0.2s ease,
+                color 0.2s ease,
+                box-shadow 0.2s ease;
+  }
+
+  button:active:not(:disabled),
+  a:active {
+    transform: scale(0.97);
+  }
+
+  /* Smooth scrolling */
+  * {
+    scroll-behavior: smooth;
+  }
+
+  /* Smooth page transitions */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }

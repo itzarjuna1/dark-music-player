@@ -10,7 +10,6 @@ const StaticBackground = () => {
       setCustomWallpaper(savedWallpaper);
     }
 
-    // Listen for wallpaper changes
     const handleStorageChange = () => {
       const wallpaper = localStorage.getItem('musify-wallpaper');
       setCustomWallpaper(wallpaper);
@@ -26,11 +25,11 @@ const StaticBackground = () => {
   }, []);
 
   return (
-    <>
+    <div className="fixed inset-0 z-0 pointer-events-none">
       {/* Custom wallpaper layer */}
       {customWallpaper && (
         <div
-          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{ 
             backgroundImage: `url(${customWallpaper})`,
             opacity: 0.3
@@ -38,19 +37,15 @@ const StaticBackground = () => {
         />
       )}
       
-      {/* Rotating cat decoration on left side */}
-      <div className="fixed left-4 top-1/2 -translate-y-1/2 z-0 pointer-events-none">
+      {/* Cat decoration — right side to avoid sidebar overlap */}
+      <div className="absolute right-4 bottom-24 opacity-30">
         <img
           src={catImage}
           alt="Decoration"
-          className="w-32 h-32 object-cover rounded-full opacity-40 rotate-[-15deg] shadow-lg"
-          style={{
-            filter: 'blur(0.5px)',
-            border: '2px solid hsl(var(--primary) / 0.3)'
-          }}
+          className="w-24 h-24 object-cover rounded-full rotate-[-15deg]"
         />
       </div>
-    </>
+    </div>
   );
 };
 

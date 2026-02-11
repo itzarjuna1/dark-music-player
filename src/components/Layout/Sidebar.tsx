@@ -50,7 +50,7 @@ const Sidebar = () => {
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url;
 
   return (
-    <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
+    <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col relative z-20">
       <div className="p-6">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">

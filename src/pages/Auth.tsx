@@ -104,7 +104,7 @@ const Auth = () => {
           <div className="flex justify-center mb-4">
             <Music className="w-12 h-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Welcome to MUSIFY</CardTitle>
+          <CardTitle className="text-2xl">Welcome to UpperMoon Tunes 🌙</CardTitle>
           <CardDescription>
             Sign in or create an account to continue
           </CardDescription>
