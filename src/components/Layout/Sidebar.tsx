@@ -54,9 +54,9 @@ const Sidebar = () => {
       <div className="p-6">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">
-            <Music2 className="w-8 h-8 text-foreground" />
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              MUSIFY
+            <span className="text-lg">🌙</span>
+            <h1 className="text-lg font-bold tracking-tight text-foreground leading-tight">
+              ✦ ᴜᴘᴘєʀϻσσɴ ᴛᴜηєꜱ 🎶
             </h1>
           </div>
           <div className="flex items-center gap-1">

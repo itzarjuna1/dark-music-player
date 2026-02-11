@@ -1,10 +1,11 @@
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, Shuffle, Repeat, Repeat1, List, Maximize2, Music2, Mic2, X } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, Shuffle, Repeat, Repeat1, List, Maximize2, Music2, Mic2, X, Download, ExternalLink } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const Player = () => {
   const navigate = useNavigate();
@@ -36,6 +37,27 @@ const Player = () => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handleDownload = () => {
+    if (!currentTrack) return;
+    if ((currentTrack as any).videoId) {
+      window.open(`https://youtube.com/watch?v=${(currentTrack as any).videoId}`, '_blank');
+      toast.info('Opened YouTube video in a new tab');
+      return;
+    }
+    if (currentTrack.preview && currentTrack.preview.startsWith('http')) {
+      const link = document.createElement('a');
+      link.href = currentTrack.preview;
+      link.download = `${currentTrack.artist} - ${currentTrack.title}.mp3`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Download started');
+    } else {
+      toast.error('No downloadable source available');
+    }
   };
 
   if (!currentTrack) {
@@ -284,7 +306,23 @@ const Player = () => {
           <Heart className={cn("w-5 h-5", favorite && "fill-current")} />
         </button>
 
-        {/* Player Controls */}
+        {/* Download Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDownload();
+          }}
+          className="text-muted-foreground hover:text-foreground smooth-transition shrink-0"
+          title={(currentTrack as any)?.videoId ? 'Open on YouTube' : 'Download'}
+        >
+          {(currentTrack as any)?.videoId ? (
+            <ExternalLink className="w-5 h-5" />
+          ) : (
+            <Download className="w-5 h-5" />
+          )}
+        </button>
+
+
         <div className="flex-1 flex flex-col items-center gap-1 max-w-2xl">
           <div className="flex items-center gap-4">
             <button
