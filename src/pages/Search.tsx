@@ -333,14 +333,14 @@ const Search = () => {
               >
                 {track.source === 'youtube' && (
                   <Badge 
-                    className="absolute top-2 left-2 z-10 bg-destructive/90 text-destructive-foreground text-xs"
+                    className="absolute top-12 left-2 z-10 bg-destructive/90 text-destructive-foreground text-xs"
                   >
                     YouTube
                   </Badge>
                 )}
                 {track.source === 'jamendo' && (
                   <Badge 
-                    className="absolute top-2 left-2 z-10 bg-primary/90 text-primary-foreground text-xs"
+                    className="absolute top-12 left-2 z-10 bg-primary/90 text-primary-foreground text-xs"
                   >
                     Full Track
                   </Badge>
@@ -354,6 +354,8 @@ const Search = () => {
                     cover: track.cover,
                     preview: track.preview,
                     duration: track.duration,
+                    source: track.source,
+                    videoId: track.videoId,
                   }} 
                   onCustomClick={track.source === 'youtube' ? () => handleTrackClick(track) : undefined}
                 />

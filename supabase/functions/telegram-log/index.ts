@@ -34,13 +34,17 @@ Deno.serve(async (req) => {
 
     const playerName = userName || 'Unknown User';
 
+    // Build YouTube link if available
+    const youtubeLink = videoId ? `https://youtube.com/watch?v=${videoId}` : '';
+
     const message = `🎵 *Now Playing*\n\n` +
       `*Title:* ${escapeMarkdown(title)}\n` +
       `*Artist:* ${escapeMarkdown(artist)}\n` +
       `*Album:* ${escapeMarkdown(album)}\n` +
       `*Duration:* ${durationFormatted}\n` +
-      `👤 *Played by:* ${escapeMarkdown(playerName)}\n\n` +
-      `🕐 _${timestamp} UTC_`;
+      `👤 *Played by:* ${escapeMarkdown(playerName)}\n` +
+      (youtubeLink ? `\n🎬 [Watch on YouTube](${youtubeLink})\n` : '') +
+      `\n🕐 _${timestamp} UTC_`;
 
     // Use YouTube video thumbnail if videoId is available
     let thumbnailUrl = cover;
@@ -48,7 +52,7 @@ Deno.serve(async (req) => {
       thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
     }
 
-    // Send photo with caption if thumbnail exists
+    // Send photo with caption
     if (thumbnailUrl && thumbnailUrl.startsWith('http')) {
       const photoResponse = await fetch(
         `https://api.telegram.org/bot${botToken}/sendPhoto`,
@@ -66,32 +70,28 @@ Deno.serve(async (req) => {
 
       const photoResult = await photoResponse.json();
       
-      if (!photoResult.ok) {
-        // If maxresdefault fails for YT, try hqdefault
-        if (videoId) {
-          const fallbackThumb = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-          const retryResponse = await fetch(
-            `https://api.telegram.org/bot${botToken}/sendPhoto`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: chatId,
-                photo: fallbackThumb,
-                caption: message,
-                parse_mode: 'Markdown',
-              }),
-            }
-          );
-          const retryResult = await retryResponse.json();
-          if (!retryResult.ok) {
-            console.log('Photo failed, sending text:', retryResult);
-            await sendTextMessage(botToken, chatId, message);
+      if (!photoResult.ok && videoId) {
+        // Fallback to hqdefault for YT
+        const fallbackThumb = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        const retryResponse = await fetch(
+          `https://api.telegram.org/bot${botToken}/sendPhoto`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              photo: fallbackThumb,
+              caption: message,
+              parse_mode: 'Markdown',
+            }),
           }
-        } else {
-          console.log('Photo failed, sending text:', photoResult);
+        );
+        const retryResult = await retryResponse.json();
+        if (!retryResult.ok) {
           await sendTextMessage(botToken, chatId, message);
         }
+      } else if (!photoResult.ok) {
+        await sendTextMessage(botToken, chatId, message);
       }
     } else {
       await sendTextMessage(botToken, chatId, message);
