@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,7 +31,6 @@ interface Activity {
 }
 
 const Community = () => {
-  const { user } = useAuth();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -126,12 +124,12 @@ const Community = () => {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !user || !selectedRoom) return;
+    if (!newMessage.trim() || !selectedRoom) return;
 
     try {
       const { error } = await (supabase as any).from('chat_messages').insert({
         room_id: selectedRoom.id,
-        user_id: user.id,
+        user_id: 'guest',
         message: newMessage.trim(),
       });
 
@@ -157,7 +155,6 @@ const Community = () => {
   return (
     <div className="flex-1 overflow-hidden p-6 animate-fade-in">
       <div className="max-w-7xl mx-auto h-full flex gap-6">
-        {/* Chat Section */}
         <div className="flex-1 flex flex-col glass rounded-xl overflow-hidden">
           <div className="p-4 border-b border-border">
             <h2 className="text-2xl font-bold gradient-text">Community Chat</h2>
@@ -165,7 +162,6 @@ const Community = () => {
           </div>
 
           <div className="flex flex-1 overflow-hidden">
-            {/* Room List */}
             <div className="w-64 border-r border-border p-4 space-y-2 overflow-y-auto">
               {rooms.map((room) => (
                 <button
@@ -183,18 +179,13 @@ const Community = () => {
               ))}
             </div>
 
-            {/* Messages */}
             <div className="flex-1 flex flex-col">
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-3">
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`p-3 rounded-lg max-w-[80%] ${
-                        msg.user_id === user?.id
-                          ? 'bg-primary text-primary-foreground ml-auto'
-                          : 'bg-card'
-                      }`}
+                      className="p-3 rounded-lg max-w-[80%] bg-card"
                     >
                       <p className="text-sm">{msg.message}</p>
                       <p className="text-xs opacity-70 mt-1">
@@ -205,7 +196,6 @@ const Community = () => {
                 </div>
               </ScrollArea>
 
-              {/* Input */}
               <div className="p-4 border-t border-border flex gap-2">
                 <Input
                   value={newMessage}
@@ -222,7 +212,6 @@ const Community = () => {
           </div>
         </div>
 
-        {/* Activity Feed */}
         <div className="w-80 glass rounded-xl p-4 overflow-hidden flex flex-col">
           <h3 className="text-xl font-bold mb-4 gradient-text">Recent Activity</h3>
           <ScrollArea className="flex-1">

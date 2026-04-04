@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './AuthContext';
 
 interface Track {
   id: number;
@@ -37,7 +36,6 @@ interface PlayerContextType {
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolumeState] = useState(0.7);
@@ -89,41 +87,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const saveToHistory = async (track: Track) => {
-    if (!user || playHistory.includes(track.id)) return;
-
-    try {
-      const { error } = await (supabase as any).from('play_history').insert({
-        user_id: user.id,
-        track_id: track.id,
-        track_title: track.title,
-        track_artist: track.artist,
-        track_album: track.album,
-        track_cover: track.cover,
-        track_preview: track.preview,
-        track_duration: track.duration,
-      });
-      
-      if (error) throw error;
-      setPlayHistory(prev => [...prev, track.id]);
-    } catch (error) {
-      console.error('Error saving to history:', error);
-    }
-  };
-
   const sendTelegramLog = async (track: Track) => {
     try {
-      // Get user profile name for "played by"
-      let userName = user?.email?.split('@')[0] || 'Unknown';
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
-          .single();
-        if (profile?.full_name) userName = profile.full_name;
-      }
-
       await supabase.functions.invoke('telegram-log', {
         body: {
           title: track.title,
@@ -131,7 +96,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           album: track.album,
           cover: track.cover,
           duration: track.duration,
-          userName,
+          userName: 'Guest',
           videoId: (track as any).videoId || null,
         },
       });
@@ -212,16 +177,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentTrack(track);
     setIsPlaying(true);
     
-    // Only use HTML audio for non-YouTube tracks
     if (audioRef.current && track.preview && !track.videoId) {
       audioRef.current.src = track.preview;
       audioRef.current.play();
     } else if (audioRef.current && track.videoId) {
-      // Pause any currently playing audio when switching to YouTube
       audioRef.current.pause();
     }
     
-    saveToHistory(track);
     sendTelegramLog(track);
   };
 
