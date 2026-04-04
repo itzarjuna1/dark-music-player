@@ -1,6 +1,4 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 interface Playlist {
@@ -14,93 +12,29 @@ interface Playlist {
 }
 
 export const usePlaylists = () => {
-  const { user } = useAuth();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadPlaylists();
-    }
-  }, [user]);
-
-  const loadPlaylists = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('playlists')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      // Get track counts for each playlist
-      const playlistsWithCounts = await Promise.all(
-        (data || []).map(async (playlist) => {
-          const { count } = await supabase
-            .from('playlist_tracks')
-            .select('*', { count: 'exact', head: true })
-            .eq('playlist_id', playlist.id);
-          
-          return { ...playlist, track_count: count || 0 };
-        })
-      );
-
-      setPlaylists(playlistsWithCounts);
-    } catch (error) {
-      console.error('Error loading playlists:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loadPlaylists = async () => {};
 
   const createPlaylist = async (name: string, description?: string) => {
-    if (!user) {
-      toast.error('Please sign in to create playlists');
-      return null;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('playlists')
-        .insert({
-          user_id: user.id,
-          name,
-          description,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      toast.success('Playlist created');
-      await loadPlaylists();
-      return data;
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create playlist');
-      return null;
-    }
+    const newPlaylist: Playlist = {
+      id: Date.now().toString(),
+      name,
+      description: description || null,
+      cover_url: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      track_count: 0,
+    };
+    setPlaylists(prev => [...prev, newPlaylist]);
+    toast.success('Playlist created');
+    return newPlaylist;
   };
 
   const deletePlaylist = async (playlistId: string) => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('playlists')
-        .delete()
-        .eq('id', playlistId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-      
-      toast.success('Playlist deleted');
-      await loadPlaylists();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete playlist');
-    }
+    setPlaylists(prev => prev.filter(p => p.id !== playlistId));
+    toast.success('Playlist deleted');
   };
 
   return { playlists, loading, createPlaylist, deletePlaylist, loadPlaylists };
