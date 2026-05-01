@@ -31,7 +31,7 @@ const App = () => (
           <div className="flex h-[100dvh] overflow-hidden relative">
             <StaticBackground />
             <Sidebar />
-            <main className="flex-1 flex flex-col overflow-hidden relative z-10">
+            <main className="flex-1 flex flex-col overflow-hidden relative z-10 pt-12 md:pt-0">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/search" element={<Search />} />
