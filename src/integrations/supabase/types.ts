@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          api_key: string
+          contact_info: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          is_owner: boolean
+          monthly_quota: number
+          name: string
+          plan: string
+          requests_used: number
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          contact_info?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_owner?: boolean
+          monthly_quota?: number
+          name?: string
+          plan?: string
+          requests_used?: number
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          contact_info?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_owner?: boolean
+          monthly_quota?: number
+          name?: string
+          plan?: string
+          requests_used?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      api_request_logs: {
+        Row: {
+          api_key: string
+          created_at: string
+          endpoint: string
+          id: string
+          status: number
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          status?: number
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          status?: number
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           id: string
@@ -127,6 +196,51 @@ export type Database = {
           follower_id?: string
           following_id?: string
           id?: string
+        }
+        Relationships: []
+      }
+      now_playing: {
+        Row: {
+          album: string | null
+          api_key: string
+          api_key_id: string | null
+          artist: string | null
+          cover: string | null
+          duration: number
+          id: string
+          is_playing: boolean
+          position: number
+          title: string
+          updated_at: string
+          video_id: string | null
+        }
+        Insert: {
+          album?: string | null
+          api_key: string
+          api_key_id?: string | null
+          artist?: string | null
+          cover?: string | null
+          duration?: number
+          id?: string
+          is_playing?: boolean
+          position?: number
+          title: string
+          updated_at?: string
+          video_id?: string | null
+        }
+        Update: {
+          album?: string | null
+          api_key?: string
+          api_key_id?: string | null
+          artist?: string | null
+          cover?: string | null
+          duration?: number
+          id?: string
+          is_playing?: boolean
+          position?: number
+          title?: string
+          updated_at?: string
+          video_id?: string | null
         }
         Relationships: []
       }
