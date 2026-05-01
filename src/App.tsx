@@ -16,6 +16,7 @@ import Community from "./pages/Community";
 import Visualizer from "./pages/Visualizer";
 import Premium from "./pages/Premium";
 import NotFound from "./pages/NotFound";
+import DeveloperPortal from "./pages/DeveloperPortal";
 import StaticBackground from "./components/StaticBackground";
 
 const queryClient = new QueryClient();
@@ -27,7 +28,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <div className="flex h-screen overflow-hidden relative">
+          <div className="flex h-[100dvh] overflow-hidden relative">
             <StaticBackground />
             <Sidebar />
             <main className="flex-1 flex flex-col overflow-hidden relative z-10">
@@ -41,6 +42,7 @@ const App = () => (
                 <Route path="/visualizer" element={<Visualizer />} />
                 <Route path="/premium" element={<Premium />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/developer" element={<DeveloperPortal />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
