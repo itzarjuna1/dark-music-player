@@ -105,6 +105,32 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Sync now-playing to bot-api so connected Telegram bot can show track info
+  const syncNowPlaying = async (track: Track | null, position: number, playing: boolean) => {
+    try {
+      const apiKey = localStorage.getItem('um_bot_api_key');
+      if (!apiKey || !track) return;
+      const projectId = (import.meta as any).env?.VITE_SUPABASE_PROJECT_ID;
+      if (!projectId) return;
+      await fetch(`https://${projectId}.supabase.co/functions/v1/bot-api/nowplaying`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+        body: JSON.stringify({
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          cover: track.cover,
+          video_id: (track as any).videoId || null,
+          duration: Math.floor(track.duration || 0),
+          position: Math.floor(position),
+          is_playing: playing,
+        }),
+      });
+    } catch (e) {
+      // silent
+    }
+  };
+
   const extractDominantColor = async (imageUrl: string) => {
     try {
       const img = new Image();
