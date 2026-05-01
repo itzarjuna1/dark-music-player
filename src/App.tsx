@@ -67,6 +67,7 @@ const App = () => {
       </PlayerProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
