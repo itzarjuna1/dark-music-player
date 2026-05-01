@@ -268,96 +268,11 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     );
   }
 
-  // Mini player bar
+  // Mini bar is handled by the global Player component (PlayerContext).
+  // We just keep the hidden iframe alive so YouTube playback continues.
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-card/95 backdrop-blur-xl border-t border-border z-50">
-      <div className="h-full px-4 flex items-center gap-4">
-        {/* Hidden YouTube Player */}
-        <div className="hidden">
-          <div id="youtube-player" />
-        </div>
-
-        {/* Track Info */}
-        <button
-          onClick={() => setIsExpanded(true)}
-          className="flex items-center gap-3 flex-1 min-w-0 text-left hover:bg-foreground/5 rounded-lg p-1 smooth-transition"
-        >
-          <img src={thumbnail} alt={title} className="w-14 h-14 rounded-lg object-cover shadow-lg" />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold truncate">{title}</p>
-            <p className="text-sm text-muted-foreground truncate">{artist}</p>
-          </div>
-        </button>
-
-        {/* Favorite */}
-        <button
-          onClick={() => toggleFavorite(trackForFavorite)}
-          className={cn("shrink-0 smooth-transition", favorite ? "text-primary" : "text-muted-foreground hover:text-primary")}
-        >
-          <Heart className={cn("w-5 h-5", favorite && "fill-current")} />
-        </button>
-
-        {/* Controls */}
-        <div className="flex-1 flex flex-col items-center gap-1 max-w-2xl">
-          <div className="flex items-center gap-4">
-            <button onClick={onPrevious} className="text-muted-foreground hover:text-foreground smooth-transition">
-              <SkipBack className="w-5 h-5" />
-            </button>
-            <button
-              onClick={togglePlay}
-              className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-110 smooth-transition"
-            >
-              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-            </button>
-            <button onClick={onNext} className="text-muted-foreground hover:text-foreground smooth-transition">
-              <SkipForward className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="w-full hidden sm:flex items-center gap-2">
-            <span className="text-xs text-muted-foreground min-w-[35px] text-right">
-              {formatTime(currentTime)}
-            </span>
-            <Slider
-              value={[currentTime]}
-              max={duration || 100}
-              step={1}
-              onValueChange={handleSeek}
-              className="flex-1"
-            />
-            <span className="text-xs text-muted-foreground min-w-[35px]">
-              {formatTime(duration)}
-            </span>
-          </div>
-        </div>
-
-        {/* Volume & Actions */}
-        <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
-          <button
-            onClick={() => setIsExpanded(true)}
-            className="text-muted-foreground hover:text-foreground smooth-transition hidden md:block"
-          >
-            <Maximize2 className="w-5 h-5" />
-          </button>
-          
-          <div className="hidden md:flex items-center gap-2">
-            <button onClick={toggleMute} className="text-muted-foreground hover:text-foreground smooth-transition">
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            </button>
-            <Slider
-              value={[isMuted ? 0 : volume]}
-              max={100}
-              step={1}
-              onValueChange={handleVolumeChange}
-              className="w-20"
-            />
-          </div>
-
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground smooth-transition ml-2">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+    <div className="hidden">
+      <div id="youtube-player" />
     </div>
   );
 };

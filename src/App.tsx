@@ -16,21 +16,37 @@ import Community from "./pages/Community";
 import Visualizer from "./pages/Visualizer";
 import Premium from "./pages/Premium";
 import NotFound from "./pages/NotFound";
+import DeveloperPortal from "./pages/DeveloperPortal";
 import StaticBackground from "./components/StaticBackground";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  // Initialize Telegram WebApp if running inside Telegram
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      try {
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor?.('secondary_bg_color');
+        document.documentElement.classList.add('tg-webapp');
+      } catch {}
+    }
+  }, []);
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <PlayerProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <div className="flex h-screen overflow-hidden relative">
+          <div className="flex h-[100dvh] overflow-hidden relative">
             <StaticBackground />
             <Sidebar />
-            <main className="flex-1 flex flex-col overflow-hidden relative z-10">
+            <main className="flex-1 flex flex-col overflow-hidden relative z-10 pt-12 md:pt-0">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/search" element={<Search />} />
@@ -41,6 +57,7 @@ const App = () => (
                 <Route path="/visualizer" element={<Visualizer />} />
                 <Route path="/premium" element={<Premium />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/developer" element={<DeveloperPortal />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
@@ -50,6 +67,7 @@ const App = () => (
       </PlayerProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;

@@ -18,3 +18,9 @@ verify_jwt = false
 [functions.youtube-search]
 verify_jwt = false
 
+[functions.bot-api]
+verify_jwt = false
+
+[functions.api-key-manager]
+verify_jwt = false
+
