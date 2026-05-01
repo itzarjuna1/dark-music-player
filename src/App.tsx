@@ -18,10 +18,25 @@ import Premium from "./pages/Premium";
 import NotFound from "./pages/NotFound";
 import DeveloperPortal from "./pages/DeveloperPortal";
 import StaticBackground from "./components/StaticBackground";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  // Initialize Telegram WebApp if running inside Telegram
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      try {
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor?.('secondary_bg_color');
+        document.documentElement.classList.add('tg-webapp');
+      } catch {}
+    }
+  }, []);
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <PlayerProvider>
