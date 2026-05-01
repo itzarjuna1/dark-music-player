@@ -211,7 +211,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     
     sendTelegramLog(track);
+    syncNowPlaying(track, 0, true);
   };
+
+  // Throttled now-playing sync (every 5s while playing)
+  useEffect(() => {
+    if (!currentTrack) return;
+    const id = window.setInterval(() => {
+      syncNowPlaying(currentTrack, currentTime, isPlaying);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [currentTrack, isPlaying, currentTime]);
 
   const togglePlay = () => {
     if (audioRef.current) {
