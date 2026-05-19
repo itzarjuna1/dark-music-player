@@ -282,6 +282,64 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---------- PLAY (top match for /play <query>) ----------
+    // Returns the first matching YouTube track so the bot can pipe it to PyTgCalls.
+    if (action === 'play') {
+      const q = url.searchParams.get('q') || url.searchParams.get('query');
+      if (!q) return json({ error: 'Missing q parameter' }, 400);
+      if (pool.size() === 0) return json({ error: 'YouTube API not configured' }, 503);
+
+      const results = await searchYoutube(q, 1, false);
+      await recordUsage(200);
+      if (results.length === 0) return json({ error: 'No results' }, 404);
+      const t = results[0];
+      return json({
+        ok: true,
+        track: t,
+        // bot uses this with yt-dlp/your downloader to extract the stream
+        stream_url: `https://www.youtube.com/watch?v=${t.video_id}`,
+        instructions: 'Pipe stream_url through yt-dlp -f bestaudio -> ffmpeg -> PyTgCalls',
+      });
+    }
+
+    // ---------- CLONES (owner only) ----------
+    // Used by your hoster bot to fetch all active clone configs (bot_token, string_session, logger_chat_id).
+    // The bot then spawns a Pyrogram + PyTgCalls instance for each clone on your VPS.
+    if (action === 'clones') {
+      if (!keyRow.is_owner) {
+        return json({ error: 'Owner API key required for clones endpoint' }, 403);
+      }
+
+      if (req.method === 'GET') {
+        const { data: clones, error } = await supabase
+          .from('bot_clones')
+          .select('id, name, bot_token, logger_chat_id, assistant_string_session, assistant_name, api_id, api_hash, is_active, last_heartbeat, notes, created_at, updated_at')
+          .eq('owner_api_key', apiKey)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        if (error) return json({ error: error.message }, 500);
+        await recordUsage(200);
+        return json({ clones: clones || [], count: (clones || []).length });
+      }
+
+      if (req.method === 'POST') {
+        // Heartbeat: bot pings to mark a clone as alive
+        const body = await req.json().catch(() => ({}));
+        if (body?.heartbeat && body?.clone_id) {
+          await supabase
+            .from('bot_clones')
+            .update({ last_heartbeat: new Date().toISOString() })
+            .eq('id', body.clone_id)
+            .eq('owner_api_key', apiKey);
+          await recordUsage(200);
+          return json({ ok: true });
+        }
+        return json({ error: 'Invalid clones POST body' }, 400);
+      }
+
+      return json({ error: 'Method not allowed' }, 405);
+    }
+
     // ---------- NOW PLAYING ----------
     if (action === 'nowplaying') {
       if (req.method === 'POST') {
