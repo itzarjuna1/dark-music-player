@@ -83,6 +83,57 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_clones: {
+        Row: {
+          api_hash: string | null
+          api_id: string | null
+          assistant_name: string | null
+          assistant_string_session: string
+          bot_token: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_heartbeat: string | null
+          logger_chat_id: string
+          name: string
+          notes: string | null
+          owner_api_key: string
+          updated_at: string
+        }
+        Insert: {
+          api_hash?: string | null
+          api_id?: string | null
+          assistant_name?: string | null
+          assistant_string_session: string
+          bot_token: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_heartbeat?: string | null
+          logger_chat_id: string
+          name?: string
+          notes?: string | null
+          owner_api_key: string
+          updated_at?: string
+        }
+        Update: {
+          api_hash?: string | null
+          api_id?: string | null
+          assistant_name?: string | null
+          assistant_string_session?: string
+          bot_token?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_heartbeat?: string | null
+          logger_chat_id?: string
+          name?: string
+          notes?: string | null
+          owner_api_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           id: string
