@@ -122,7 +122,7 @@ export default function DeveloperPortal() {
             <Badge variant="secondary" className="text-xs">Beta</Badge>
           </div>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Connect your Telegram music bot to UpperMoon Tunes. Get an API key, search YouTube, stream and download songs — all from one endpoint.
+            Connect your Telegram music bot to UpperMoon Tunes. Get an API key and search YouTube music & shorts — clean metadata, no yt-dlp on our side.
           </p>
         </div>
 
