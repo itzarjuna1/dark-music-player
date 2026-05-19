@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Code, Copy, Check, Key, Crown, Shield, Zap, Calendar, MessageCircle, Trash2, ExternalLink } from 'lucide-react';
+import { Code, Copy, Check, Key, Crown, Shield, Zap, Calendar, MessageCircle, Trash2, ExternalLink, Bot, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
