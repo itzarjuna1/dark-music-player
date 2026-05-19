@@ -404,7 +404,7 @@ Deno.serve(async (req) => {
     return json(
       {
         error: `Unknown endpoint: ${action}`,
-        available: ['/search', '/shorts', '/nowplaying'],
+        available: ['/search', '/shorts', '/play', '/nowplaying', '/clones'],
       },
       404,
     );
