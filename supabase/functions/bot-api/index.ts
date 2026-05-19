@@ -2,7 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-api-key, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-api-key, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
@@ -12,6 +13,152 @@ const json = (data: unknown, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 
+// ---------------- YouTube API key pool ----------------
+// Supports a comma-separated list in YOUTUBE_API_KEY for rotation when one
+// key hits quota or is busy. Mirrors the YouTubeKeyPool pattern from the bot.
+class YouTubeKeyPool {
+  private keys: string[];
+  private idx = 0;
+  private dead = new Set<string>();
+  constructor(raw: string) {
+    this.keys = raw
+      .split(/[\s,]+/)
+      .map((k) => k.trim())
+      .filter(Boolean);
+  }
+  size() {
+    return this.keys.length;
+  }
+  next(): string | null {
+    if (this.keys.length === 0) return null;
+    for (let i = 0; i < this.keys.length; i++) {
+      const k = this.keys[(this.idx + i) % this.keys.length];
+      if (!this.dead.has(k)) {
+        this.idx = (this.idx + i + 1) % this.keys.length;
+        return k;
+      }
+    }
+    return null;
+  }
+  markDead(k: string) {
+    this.dead.add(k);
+  }
+}
+
+const pool = new YouTubeKeyPool(Deno.env.get('YOUTUBE_API_KEY') || '');
+
+async function ytFetch(buildUrl: (key: string) => string): Promise<any> {
+  let lastErr: any = null;
+  for (let attempt = 0; attempt < Math.max(1, pool.size()); attempt++) {
+    const key = pool.next();
+    if (!key) break;
+    const res = await fetch(buildUrl(key));
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return data;
+    const reason = data?.error?.errors?.[0]?.reason || '';
+    if (
+      res.status === 403 &&
+      (reason === 'quotaExceeded' ||
+        reason === 'rateLimitExceeded' ||
+        reason === 'dailyLimitExceeded')
+    ) {
+      pool.markDead(key);
+      lastErr = data;
+      continue;
+    }
+    throw new Error(data?.error?.message || `YouTube API error ${res.status}`);
+  }
+  throw new Error(lastErr?.error?.message || 'All YouTube API keys exhausted');
+}
+
+function parseDuration(iso: string): number {
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (
+    parseInt(m[1] || '0') * 3600 +
+    parseInt(m[2] || '0') * 60 +
+    parseInt(m[3] || '0')
+  );
+}
+
+function cleanTitle(rawTitle: string, channel: string) {
+  let artist = (channel || '').replace(/ - Topic$/, '').replace(/VEVO$/, '').trim();
+  let title = rawTitle || '';
+  if (title.includes(' - ')) {
+    const parts = title.split(' - ');
+    artist = parts[0].trim();
+    title = parts.slice(1).join(' - ').trim();
+  }
+  title = title
+    .replace(/\s*[\(\[](Official|Lyrics?|Audio|Music Video|HD|HQ).*?[\)\]]/gi, '')
+    .replace(/\s*\|.*$/g, '')
+    .trim();
+  return { title, artist };
+}
+
+async function searchYoutube(
+  query: string,
+  maxResults: number,
+  shortsOnly: boolean,
+) {
+  // 1. search
+  const searchData = await ytFetch((key) => {
+    const u = new URL('https://www.googleapis.com/youtube/v3/search');
+    u.searchParams.set('part', 'snippet');
+    u.searchParams.set('q', shortsOnly ? `${query} #shorts` : `${query} music`);
+    u.searchParams.set('type', 'video');
+    if (!shortsOnly) u.searchParams.set('videoCategoryId', '10');
+    if (shortsOnly) u.searchParams.set('videoDuration', 'short');
+    u.searchParams.set('maxResults', String(Math.min(maxResults * 2, 50)));
+    u.searchParams.set('key', key);
+    return u.toString();
+  });
+
+  const ids = (searchData.items || [])
+    .map((i: any) => i.id?.videoId)
+    .filter(Boolean)
+    .join(',');
+  if (!ids) return [];
+
+  // 2. details
+  const detailsData = await ytFetch((key) => {
+    const u = new URL('https://www.googleapis.com/youtube/v3/videos');
+    u.searchParams.set('part', 'contentDetails,snippet');
+    u.searchParams.set('id', ids);
+    u.searchParams.set('key', key);
+    return u.toString();
+  });
+
+  const results = (detailsData.items || [])
+    .map((v: any) => {
+      const duration = parseDuration(v.contentDetails?.duration || 'PT0S');
+      const { title, artist } = cleanTitle(
+        v.snippet?.title || '',
+        v.snippet?.channelTitle || '',
+      );
+      const thumb =
+        v.snippet?.thumbnails?.high?.url ||
+        v.snippet?.thumbnails?.medium?.url ||
+        v.snippet?.thumbnails?.default?.url;
+      return {
+        video_id: v.id,
+        videoId: v.id, // backward compat
+        title,
+        artist,
+        channel: v.snippet?.channelTitle || '',
+        thumbnail: thumb,
+        duration,
+        youtube_url: `https://www.youtube.com/watch?v=${v.id}`,
+        is_short: duration > 0 && duration <= 60,
+      };
+    })
+    .filter((r: any) => (shortsOnly ? r.is_short : true))
+    .slice(0, maxResults);
+
+  return results;
+}
+
+// ---------------- HTTP handler ----------------
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -19,41 +166,45 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
   const url = new URL(req.url);
-  // Path can be: /bot-api/search, /search, etc.
   const parts = url.pathname.split('/').filter(Boolean);
   const action = parts[parts.length - 1] || 'info';
 
-  // Public info endpoint - no key required
+  // Public info endpoint
   if (action === 'info' || action === 'bot-api') {
     return json({
       service: 'UpperMoon Tunes Bot API',
-      version: '1.0',
+      version: '2.0',
+      note:
+        'Metadata only — stream/download extraction is the bot\'s responsibility.',
       endpoints: {
-        '/search?q=<query>&limit=20': 'Search YouTube tracks (returns videoId for bot to handle yt-dlp)',
-        '/stream?id=<videoId>': 'Get streaming metadata for a video (bot streams via its own yt-dlp)',
-        '/download?id=<videoId>': 'Get download metadata for a video',
-        '/nowplaying (POST)': 'Update what is currently playing (for Telegram voice chat display)',
-        '/nowplaying (GET)': 'Get current playing track info with progress',
+        'GET  /search?q=<query>&limit=10': 'Search YouTube music videos (metadata)',
+        'GET  /shorts?q=<query>&limit=10': 'Search YouTube Shorts (<= 60s)',
+        'POST /nowplaying': 'Update what is currently playing',
+        'GET  /nowplaying': 'Get current playing track with progress bar',
       },
-      auth: 'Pass X-API-Key header or ?api_key= query param',
+      auth:
+        'Send X-API-Key header (or ?api_key=). Get a key from the Developer Portal.',
+      youtube_keys_loaded: pool.size(),
     });
   }
 
-  // Extract API key
+  // ----- API key auth -----
   const apiKey =
     req.headers.get('x-api-key') ||
     url.searchParams.get('api_key') ||
     req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
 
   if (!apiKey) {
-    return json({ error: 'Missing API key. Provide X-API-Key header or ?api_key= param.' }, 401);
+    return json(
+      { error: 'Missing API key. Send X-API-Key header or ?api_key= param.' },
+      401,
+    );
   }
 
-  // Validate the API key
   const { data: keyRow, error: keyErr } = await supabase
     .from('api_keys')
     .select('*')
@@ -64,100 +215,70 @@ Deno.serve(async (req) => {
   if (keyErr || !keyRow) {
     return json({ error: 'Invalid or inactive API key' }, 401);
   }
-
-  // Check expiry
   if (keyRow.expires_at && new Date(keyRow.expires_at) < new Date()) {
-    return json({ error: 'API key expired. Renew at https://t.me/theinfinity_support' }, 403);
+    return json(
+      { error: 'API key expired. Renew at https://t.me/theinfinity_support' },
+      403,
+    );
   }
-
-  // Quota check (owner keys are unlimited)
   if (!keyRow.is_owner && keyRow.requests_used >= keyRow.monthly_quota) {
-    return json({ error: 'Monthly quota exceeded. Upgrade at https://t.me/theinfinity_support' }, 429);
+    return json(
+      {
+        error:
+          'Monthly quota exceeded. Upgrade at https://t.me/theinfinity_support',
+      },
+      429,
+    );
   }
 
-  // Log + increment usage
-  await supabase.from('api_request_logs').insert({
-    api_key: apiKey,
-    endpoint: action,
-    status: 200,
-  });
-
-  if (!keyRow.is_owner) {
-    await supabase
-      .from('api_keys')
-      .update({ requests_used: keyRow.requests_used + 1 })
-      .eq('id', keyRow.id);
-  }
+  const recordUsage = async (status: number) => {
+    await supabase.from('api_request_logs').insert({
+      api_key: apiKey,
+      endpoint: action,
+      status,
+    });
+    if (!keyRow.is_owner) {
+      await supabase
+        .from('api_keys')
+        .update({ requests_used: keyRow.requests_used + 1 })
+        .eq('id', keyRow.id);
+    }
+  };
 
   try {
     // ---------- SEARCH ----------
     if (action === 'search') {
-      const query = url.searchParams.get('q') || url.searchParams.get('query');
-      const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 50);
-      if (!query) return json({ error: 'Missing q parameter' }, 400);
+      const q = url.searchParams.get('q') || url.searchParams.get('query');
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '10'), 50);
+      if (!q) return json({ error: 'Missing q parameter' }, 400);
+      if (pool.size() === 0) return json({ error: 'YouTube API not configured' }, 503);
 
-      const ytKey = Deno.env.get('YOUTUBE_API_KEY');
-      if (!ytKey) return json({ error: 'YouTube API not configured' }, 500);
-
-      const searchUrl = new URL('https://www.googleapis.com/youtube/v3/search');
-      searchUrl.searchParams.set('part', 'snippet');
-      searchUrl.searchParams.set('q', `${query} music`);
-      searchUrl.searchParams.set('type', 'video');
-      searchUrl.searchParams.set('videoCategoryId', '10');
-      searchUrl.searchParams.set('maxResults', String(limit));
-      searchUrl.searchParams.set('key', ytKey);
-
-      const sr = await fetch(searchUrl.toString());
-      const sd = await sr.json();
-      if (!sr.ok) return json({ error: sd.error?.message || 'YouTube error' }, 502);
-
-      const ids = (sd.items || []).map((i: any) => i.id.videoId).filter(Boolean).join(',');
-      if (!ids) return json({ tracks: [] });
-
-      const detailsUrl = new URL('https://www.googleapis.com/youtube/v3/videos');
-      detailsUrl.searchParams.set('part', 'contentDetails,snippet');
-      detailsUrl.searchParams.set('id', ids);
-      detailsUrl.searchParams.set('key', ytKey);
-      const dr = await fetch(detailsUrl.toString());
-      const dd = await dr.json();
-
-      const tracks = (dd.items || []).map((v: any) => {
-        const dur = parseDuration(v.contentDetails?.duration || 'PT0S');
-        const title = v.snippet?.title || '';
-        let artist = (v.snippet?.channelTitle || '').replace(/ - Topic$/, '').replace(/VEVO$/, '');
-        let songTitle = title;
-        if (title.includes(' - ')) {
-          const p = title.split(' - ');
-          artist = p[0].trim();
-          songTitle = p.slice(1).join(' - ').trim();
-        }
-        return {
-          videoId: v.id,
-          title: songTitle.replace(/\s*[\(\[](Official|Lyrics?|Audio|Music Video).*?[\)\]]/gi, '').trim(),
-          artist,
-          thumbnail: v.snippet?.thumbnails?.high?.url,
-          duration: dur,
-          youtube_url: `https://www.youtube.com/watch?v=${v.id}`,
-        };
+      const results = await searchYoutube(q, limit, false);
+      await recordUsage(200);
+      return json({
+        results,
+        count: results.length,
+        quota_remaining: keyRow.is_owner
+          ? 'unlimited'
+          : keyRow.monthly_quota - keyRow.requests_used - 1,
       });
-
-      return json({ tracks, quota_remaining: keyRow.is_owner ? 'unlimited' : keyRow.monthly_quota - keyRow.requests_used - 1 });
     }
 
-    // ---------- STREAM / DOWNLOAD (metadata for bot's yt-dlp) ----------
-    if (action === 'stream' || action === 'download') {
-      const id = url.searchParams.get('id') || url.searchParams.get('videoId');
-      if (!id) return json({ error: 'Missing id parameter' }, 400);
+    // ---------- SHORTS ----------
+    if (action === 'shorts') {
+      const q = url.searchParams.get('q') || url.searchParams.get('query');
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '10'), 50);
+      if (!q) return json({ error: 'Missing q parameter' }, 400);
+      if (pool.size() === 0) return json({ error: 'YouTube API not configured' }, 503);
 
+      const results = await searchYoutube(q, limit, true);
+      await recordUsage(200);
       return json({
-        videoId: id,
-        youtube_url: `https://www.youtube.com/watch?v=${id}`,
-        thumbnail: `https://img.youtube.com/vi/${id}/maxresdefault.jpg`,
-        instructions: action === 'stream'
-          ? 'Use yt-dlp on your bot side to extract audio: yt-dlp -f bestaudio -o - <youtube_url> | ffmpeg ...'
-          : 'Use yt-dlp on your bot side to download: yt-dlp -x --audio-format mp3 <youtube_url>',
-        ytdlp_command_stream: `yt-dlp -f bestaudio -g https://www.youtube.com/watch?v=${id}`,
-        ytdlp_command_download: `yt-dlp -x --audio-format mp3 https://www.youtube.com/watch?v=${id}`,
+        results,
+        count: results.length,
+        quota_remaining: keyRow.is_owner
+          ? 'unlimited'
+          : keyRow.monthly_quota - keyRow.requests_used - 1,
       });
     }
 
@@ -165,10 +286,10 @@ Deno.serve(async (req) => {
     if (action === 'nowplaying') {
       if (req.method === 'POST') {
         const body = await req.json().catch(() => ({}));
-        const { title, artist, album, cover, video_id, duration, position, is_playing } = body;
+        const { title, artist, album, cover, video_id, duration, position, is_playing } =
+          body;
         if (!title) return json({ error: 'Missing title' }, 400);
 
-        // Upsert: delete prev for this key, then insert
         await supabase.from('now_playing').delete().eq('api_key', apiKey);
         const { error: insErr } = await supabase.from('now_playing').insert({
           api_key: apiKey,
@@ -183,10 +304,10 @@ Deno.serve(async (req) => {
           is_playing: is_playing !== false,
         });
         if (insErr) return json({ error: insErr.message }, 500);
+        await recordUsage(200);
         return json({ success: true });
       }
 
-      // GET
       const { data: np } = await supabase
         .from('now_playing')
         .select('*')
@@ -195,16 +316,17 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
+      await recordUsage(200);
       if (!np) return json({ playing: false });
 
-      // Build progress bar
       const dur = np.duration || 1;
       const pos = Math.min(np.position || 0, dur);
       const pct = Math.round((pos / dur) * 100);
       const barLen = 20;
       const filled = Math.round((pct / 100) * barLen);
       const bar = '▓'.repeat(filled) + '░'.repeat(barLen - filled);
-      const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      const fmt = (s: number) =>
+        `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
       return json({
         playing: np.is_playing,
@@ -221,14 +343,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    return json({ error: `Unknown endpoint: ${action}` }, 404);
+    return json(
+      {
+        error: `Unknown endpoint: ${action}`,
+        available: ['/search', '/shorts', '/nowplaying'],
+      },
+      404,
+    );
   } catch (e: any) {
+    await recordUsage(500);
     return json({ error: e?.message || 'Server error' }, 500);
   }
 });
-
-function parseDuration(iso: string): number {
-  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!m) return 0;
-  return (parseInt(m[1] || '0') * 3600) + (parseInt(m[2] || '0') * 60) + parseInt(m[3] || '0');
-}

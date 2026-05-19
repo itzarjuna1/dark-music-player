@@ -122,7 +122,7 @@ export default function DeveloperPortal() {
             <Badge variant="secondary" className="text-xs">Beta</Badge>
           </div>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Connect your Telegram music bot to UpperMoon Tunes. Get an API key, search YouTube, stream and download songs — all from one endpoint.
+            Connect your Telegram music bot to UpperMoon Tunes. Get an API key and search YouTube music & shorts — clean metadata, no yt-dlp on our side.
           </p>
         </div>
 
@@ -171,14 +171,13 @@ export default function DeveloperPortal() {
             <details className="text-xs sm:text-sm text-muted-foreground">
               <summary className="cursor-pointer font-medium text-foreground">Available endpoints</summary>
               <ul className="mt-2 space-y-1 pl-4 font-mono">
-                <li>GET <code>/search?q=&lt;query&gt;</code></li>
-                <li>GET <code>/stream?id=&lt;videoId&gt;</code></li>
-                <li>GET <code>/download?id=&lt;videoId&gt;</code></li>
-                <li>GET <code>/nowplaying</code></li>
-                <li>POST <code>/nowplaying</code> (bot updates current track)</li>
+                <li>GET <code>/search?q=&lt;query&gt;&amp;limit=10</code> — music search</li>
+                <li>GET <code>/shorts?q=&lt;query&gt;&amp;limit=10</code> — shorts search (≤60s)</li>
+                <li>GET <code>/nowplaying</code> — current track + progress bar</li>
+                <li>POST <code>/nowplaying</code> — bot/player updates current track</li>
               </ul>
               <p className="mt-2">Auth: <code>X-API-Key: &lt;your-key&gt;</code></p>
-              <p className="mt-1">Note: yt-dlp runs on your bot side. We return YouTube IDs + commands.</p>
+              <p className="mt-1">Stream extraction (yt-dlp / Kartik API / etc.) runs on your bot side — we only return clean metadata + video IDs.</p>
             </details>
           </div>
         </Card>
