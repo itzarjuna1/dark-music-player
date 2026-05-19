@@ -100,6 +100,91 @@ Deno.serve(async (req) => {
       return json({ plans: PLANS });
     }
 
+    // ---------- BOT CLONES (owner only, private) ----------
+    // Helper: validate caller is an owner via owner_api_key in body
+    const requireOwner = async (k?: string) => {
+      if (!k) return { ok: false, msg: 'Missing owner_api_key' };
+      const { data: row } = await supabase
+        .from('api_keys')
+        .select('*')
+        .eq('api_key', k)
+        .eq('is_active', true)
+        .eq('is_owner', true)
+        .maybeSingle();
+      if (!row) return { ok: false, msg: 'Owner API key invalid or not owner' };
+      return { ok: true, row };
+    };
+
+    if (action === 'clone_list') {
+      const auth = await requireOwner(body.owner_api_key);
+      if (!auth.ok) return json({ error: auth.msg }, 403);
+      const { data, error } = await supabase
+        .from('bot_clones')
+        .select('*')
+        .eq('owner_api_key', body.owner_api_key)
+        .order('created_at', { ascending: false });
+      if (error) return json({ error: error.message }, 500);
+      return json({ clones: data || [] });
+    }
+
+    if (action === 'clone_create') {
+      const auth = await requireOwner(body.owner_api_key);
+      if (!auth.ok) return json({ error: auth.msg }, 403);
+      const { name, bot_token, logger_chat_id, assistant_string_session, assistant_name, api_id, api_hash, notes } = body;
+      if (!bot_token || !logger_chat_id || !assistant_string_session) {
+        return json({ error: 'bot_token, logger_chat_id and assistant_string_session are required' }, 400);
+      }
+      const { data, error } = await supabase
+        .from('bot_clones')
+        .insert({
+          owner_api_key: body.owner_api_key,
+          name: name || 'My Clone',
+          bot_token,
+          logger_chat_id: String(logger_chat_id),
+          assistant_string_session,
+          assistant_name: assistant_name || null,
+          api_id: api_id ? String(api_id) : null,
+          api_hash: api_hash || null,
+          notes: notes || null,
+        })
+        .select()
+        .single();
+      if (error) return json({ error: error.message }, 500);
+      return json({ success: true, clone: data });
+    }
+
+    if (action === 'clone_update') {
+      const auth = await requireOwner(body.owner_api_key);
+      if (!auth.ok) return json({ error: auth.msg }, 403);
+      if (!body.clone_id) return json({ error: 'Missing clone_id' }, 400);
+      const patch: any = {};
+      for (const f of ['name', 'bot_token', 'logger_chat_id', 'assistant_string_session', 'assistant_name', 'api_id', 'api_hash', 'is_active', 'notes']) {
+        if (body[f] !== undefined) patch[f] = body[f];
+      }
+      const { data, error } = await supabase
+        .from('bot_clones')
+        .update(patch)
+        .eq('id', body.clone_id)
+        .eq('owner_api_key', body.owner_api_key)
+        .select()
+        .single();
+      if (error) return json({ error: error.message }, 500);
+      return json({ success: true, clone: data });
+    }
+
+    if (action === 'clone_delete') {
+      const auth = await requireOwner(body.owner_api_key);
+      if (!auth.ok) return json({ error: auth.msg }, 403);
+      if (!body.clone_id) return json({ error: 'Missing clone_id' }, 400);
+      const { error } = await supabase
+        .from('bot_clones')
+        .delete()
+        .eq('id', body.clone_id)
+        .eq('owner_api_key', body.owner_api_key);
+      if (error) return json({ error: error.message }, 500);
+      return json({ success: true });
+    }
+
     return json({ error: 'Unknown action' }, 400);
   } catch (e: any) {
     return json({ error: e?.message || 'Server error' }, 500);
