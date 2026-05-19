@@ -221,7 +221,11 @@ export default function DeveloperPortal() {
             </div>
           )}
         </Card>
+
+        {/* Private: Bot Clones (owner only) */}
+        <CloneManager keys={keys} apiBase={apiBase} />
       </div>
+
 
       {/* Create dialog */}
       <Dialog open={openCreate} onOpenChange={setOpenCreate}>
