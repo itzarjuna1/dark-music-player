@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Code, Copy, Check, Key, Crown, Shield, Zap, Calendar, MessageCircle, Trash2, ExternalLink } from 'lucide-react';
+import { Code, Copy, Check, Key, Crown, Shield, Zap, Calendar, MessageCircle, Trash2, ExternalLink, Bot, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -221,7 +221,11 @@ export default function DeveloperPortal() {
             </div>
           )}
         </Card>
+
+        {/* Private: Bot Clones (owner only) */}
+        <CloneManager keys={keys} apiBase={apiBase} />
       </div>
+
 
       {/* Create dialog */}
       <Dialog open={openCreate} onOpenChange={setOpenCreate}>
@@ -323,5 +327,275 @@ export default function DeveloperPortal() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ============================================================
+// Private Bot Clone Manager — only works with an OWNER api key
+// ============================================================
+interface Clone {
+  id: string;
+  name: string;
+  bot_token: string;
+  logger_chat_id: string;
+  assistant_string_session: string;
+  assistant_name: string | null;
+  api_id: string | null;
+  api_hash: string | null;
+  is_active: boolean;
+  last_heartbeat: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+function CloneManager({ keys, apiBase }: { keys: ApiKey[]; apiBase: string }) {
+  const ownerKeys = keys.filter((k) => k.is_owner && k.is_active);
+  const [selectedKey, setSelectedKey] = useState<string>(
+    () => localStorage.getItem('um_owner_key') || ownerKeys[0]?.api_key || ''
+  );
+  const [clones, setClones] = useState<Clone[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showSecret, setShowSecret] = useState<string>('');
+
+  const [form, setForm] = useState({
+    name: '',
+    bot_token: '',
+    logger_chat_id: '',
+    assistant_string_session: '',
+    assistant_name: '',
+    api_id: '',
+    api_hash: '',
+    notes: '',
+  });
+
+  useEffect(() => {
+    if (!selectedKey && ownerKeys[0]) setSelectedKey(ownerKeys[0].api_key);
+  }, [ownerKeys, selectedKey]);
+
+  useEffect(() => {
+    if (selectedKey) {
+      localStorage.setItem('um_owner_key', selectedKey);
+      loadClones();
+    }
+  }, [selectedKey]);
+
+  const loadClones = async () => {
+    if (!selectedKey) return;
+    setLoading(true);
+    const { data, error } = await supabase.functions.invoke('api-key-manager', {
+      body: { action: 'clone_list', owner_api_key: selectedKey },
+    });
+    if (error || data?.error) toast.error(data?.error || error?.message || 'Load failed');
+    else setClones(data.clones || []);
+    setLoading(false);
+  };
+
+  const createClone = async () => {
+    if (!form.bot_token || !form.logger_chat_id || !form.assistant_string_session) {
+      toast.error('Bot token, logger chat id and string session are required');
+      return;
+    }
+    setSaving(true);
+    const { data, error } = await supabase.functions.invoke('api-key-manager', {
+      body: { action: 'clone_create', owner_api_key: selectedKey, ...form },
+    });
+    setSaving(false);
+    if (error || data?.error) return toast.error(data?.error || error?.message || 'Failed');
+    toast.success('Clone saved — your bot can now fetch it from /clones');
+    setOpen(false);
+    setForm({ name: '', bot_token: '', logger_chat_id: '', assistant_string_session: '', assistant_name: '', api_id: '', api_hash: '', notes: '' });
+    loadClones();
+  };
+
+  const deleteClone = async (id: string) => {
+    if (!confirm('Delete this clone? Bot will stop spawning it on next poll.')) return;
+    const { error } = await supabase.functions.invoke('api-key-manager', {
+      body: { action: 'clone_delete', owner_api_key: selectedKey, clone_id: id },
+    });
+    if (error) toast.error(error.message);
+    else { toast.success('Deleted'); loadClones(); }
+  };
+
+  const toggleActive = async (c: Clone) => {
+    const { error } = await supabase.functions.invoke('api-key-manager', {
+      body: { action: 'clone_update', owner_api_key: selectedKey, clone_id: c.id, is_active: !c.is_active },
+    });
+    if (error) toast.error(error.message);
+    else loadClones();
+  };
+
+  const mask = (s: string) => (s ? s.slice(0, 6) + '••••••' + s.slice(-4) : '');
+
+  if (ownerKeys.length === 0) {
+    return (
+      <Card className="p-4 sm:p-6 mt-6 bg-card/50 backdrop-blur border-yellow-500/30">
+        <div className="flex items-center gap-2 mb-2">
+          <Bot className="w-5 h-5 text-yellow-500" />
+          <h2 className="text-lg font-semibold">Private: Bot Clone Hosting</h2>
+          <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">Owner only</Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Generate an <strong>Owner</strong> API key above (using your master pass) to manage VC bot clones here.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-4 sm:p-6 mt-6 bg-card/50 backdrop-blur border-yellow-500/30">
+      <div className="flex items-center gap-2 mb-1 flex-wrap">
+        <Bot className="w-5 h-5 text-yellow-500" />
+        <h2 className="text-lg sm:text-xl font-semibold">Private: Bot Clone Hosting</h2>
+        <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">Owner only</Badge>
+      </div>
+      <p className="text-xs sm:text-sm text-muted-foreground mb-4">
+        Save Telegram VC music bot configs (bot token + logger id + assistant string session). Your hoster bot polls{' '}
+        <code className="font-mono bg-muted px-1 rounded">{apiBase}/clones</code> with your owner key and spawns each clone via Pyrogram + PyTgCalls on your VPS.
+      </p>
+
+      {ownerKeys.length > 1 && (
+        <div className="mb-3">
+          <label className="text-xs font-medium text-muted-foreground">Owner key</label>
+          <select
+            value={selectedKey}
+            onChange={(e) => setSelectedKey(e.target.value)}
+            className="w-full mt-1 bg-background border border-border rounded p-2 text-sm"
+          >
+            {ownerKeys.map((k) => (
+              <option key={k.id} value={k.api_key}>{k.name} — {mask(k.api_key)}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <Button onClick={() => setOpen(true)} size="sm" className="gap-2">
+          <Plus className="w-4 h-4" /> Add Clone
+        </Button>
+        <Button onClick={loadClones} size="sm" variant="outline" className="gap-2" disabled={loading}>
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : clones.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No clones yet. Add one to host a VC music bot.</p>
+      ) : (
+        <div className="space-y-2">
+          {clones.map((c) => (
+            <div key={c.id} className="rounded-lg border border-border p-3 bg-background/50">
+              <div className="flex items-start gap-2 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{c.name}</span>
+                    {c.assistant_name && <Badge variant="outline" className="text-xs">{c.assistant_name}</Badge>}
+                    {!c.is_active && <Badge variant="destructive" className="text-xs">Disabled</Badge>}
+                    {c.last_heartbeat && (
+                      <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-xs">
+                        ● live {new Date(c.last_heartbeat).toLocaleTimeString()}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5 font-mono break-all">
+                    <div>token: {showSecret === c.id ? c.bot_token : mask(c.bot_token)}</div>
+                    <div>logger: {c.logger_chat_id}</div>
+                    <div>session: {showSecret === c.id ? c.assistant_string_session : mask(c.assistant_string_session)}</div>
+                  </div>
+                  {c.notes && <p className="text-xs text-muted-foreground mt-1 italic">{c.notes}</p>}
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button size="sm" variant="ghost" onClick={() => setShowSecret(showSecret === c.id ? '' : c.id)}>
+                    {showSecret === c.id ? 'Hide' : 'Show'}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => toggleActive(c)}>
+                    {c.is_active ? 'Pause' : 'Resume'}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => deleteClone(c.id)}>
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <details className="mt-4 text-xs text-muted-foreground">
+        <summary className="cursor-pointer font-medium text-foreground">How your hoster bot consumes this</summary>
+        <pre className="mt-2 bg-muted/50 p-2 rounded overflow-x-auto text-[10px]">
+{`# On your VPS, every N seconds:
+GET ${apiBase}/clones
+Header: X-API-Key: <YOUR_OWNER_KEY>
+
+# Response:
+{ "clones": [{ "id":"...", "bot_token":"...", "assistant_string_session":"...",
+               "logger_chat_id":"...", "api_id":"...", "api_hash":"..." }] }
+
+# For each clone -> spawn Pyrogram Client + PyTgCalls
+# When /play <q> hits a clone, fetch song from:
+GET ${apiBase}/play?q=<query>
+# -> returns { track, stream_url }
+# Then pipe stream_url through yt-dlp -> ffmpeg -> PyTgCalls
+
+# Optional heartbeat so the dashboard shows "live":
+POST ${apiBase}/clones  body: { "heartbeat": true, "clone_id": "..." }`}
+        </pre>
+      </details>
+
+      {/* Add clone dialog */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Bot Clone</DialogTitle>
+            <DialogDescription>Stored encrypted at rest. Only your owner key can read these.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Clone name</label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="UpperMoon Music Bot" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Bot token *</label>
+              <Input value={form.bot_token} onChange={(e) => setForm({ ...form, bot_token: e.target.value })} placeholder="123456:ABC..." />
+              <p className="text-[10px] text-muted-foreground mt-1">From @BotFather</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Logger chat id *</label>
+              <Input value={form.logger_chat_id} onChange={(e) => setForm({ ...form, logger_chat_id: e.target.value })} placeholder="-1001234567890" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Assistant string session *</label>
+              <Input value={form.assistant_string_session} onChange={(e) => setForm({ ...form, assistant_string_session: e.target.value })} placeholder="Pyrogram/Telethon session string" />
+              <p className="text-[10px] text-muted-foreground mt-1">Userbot session — joins VC and streams audio</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Assistant name</label>
+              <Input value={form.assistant_name} onChange={(e) => setForm({ ...form, assistant_name: e.target.value })} placeholder="@my_assistant" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-sm font-medium">API ID</label>
+                <Input value={form.api_id} onChange={(e) => setForm({ ...form, api_id: e.target.value })} placeholder="12345" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">API Hash</label>
+                <Input value={form.api_hash} onChange={(e) => setForm({ ...form, api_hash: e.target.value })} placeholder="abc123..." />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Notes</label>
+              <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="optional" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={createClone} disabled={saving}>{saving ? 'Saving…' : 'Save Clone'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }
