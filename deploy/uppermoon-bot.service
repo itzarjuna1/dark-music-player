@@ -1,0 +1,17 @@
+[Unit]
+Description=UpperMoon Tunes — Bot Worker (auto-spawns cloned Telegram bots)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/uppermoon-tunes
+EnvironmentFile=/root/uppermoon-tunes/.env
+ExecStart=/usr/bin/python3 /root/uppermoon-tunes/bot_worker.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/uppermoon-bot.log
+StandardError=append:/var/log/uppermoon-bot.log
+
+[Install]
+WantedBy=multi-user.target
