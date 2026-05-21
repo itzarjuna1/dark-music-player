@@ -224,6 +224,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [currentTrack, isPlaying, currentTime]);
 
   const togglePlay = () => {
+    const yt = (window as any).__ytPlayer;
+    if (currentTrack?.videoId && yt) {
+      if (isPlaying) yt.pauseVideo(); else yt.playVideo();
+      setIsPlaying(!isPlaying);
+      return;
+    }
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
@@ -233,6 +239,34 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsPlaying(!isPlaying);
     }
   };
+
+  // Listen for YT iframe state changes to keep context in sync
+  useEffect(() => {
+    const onState = (e: any) => setIsPlaying(!!e.detail?.playing);
+    const onReady = (e: any) => {
+      if (e.detail?.duration) setDuration(e.detail.duration);
+    };
+    window.addEventListener('yt-state', onState);
+    window.addEventListener('yt-ready', onReady);
+    return () => {
+      window.removeEventListener('yt-state', onState);
+      window.removeEventListener('yt-ready', onReady);
+    };
+  }, []);
+
+  // Track YT currentTime
+  useEffect(() => {
+    if (!currentTrack?.videoId) return;
+    const id = window.setInterval(() => {
+      const yt = (window as any).__ytPlayer;
+      if (yt?.getCurrentTime) {
+        setCurrentTime(yt.getCurrentTime());
+        const d = yt.getDuration?.();
+        if (d && d !== duration) setDuration(d);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [currentTrack, duration]);
 
   const nextTrack = () => {
     if (queue.length === 0) return;
@@ -268,9 +302,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const setVolume = (newVolume: number) => {
     setVolumeState(newVolume);
+    const yt = (window as any).__ytPlayer;
+    if (yt?.setVolume) yt.setVolume(Math.round(newVolume * 100));
   };
 
   const seek = (time: number) => {
+    const yt = (window as any).__ytPlayer;
+    if (currentTrack?.videoId && yt?.seekTo) {
+      yt.seekTo(time, true);
+      setCurrentTime(time);
+      return;
+    }
     if (audioRef.current) {
       audioRef.current.currentTime = time;
       setCurrentTime(time);

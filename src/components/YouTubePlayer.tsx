@@ -90,9 +90,13 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             setDuration(event.target.getDuration());
             event.target.setVolume(volume);
             event.target.playVideo();
+            (window as any).__ytPlayer = event.target;
+            window.dispatchEvent(new CustomEvent('yt-ready', { detail: { duration: event.target.getDuration() } }));
           },
           onStateChange: (event: any) => {
-            setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
+            const playing = event.data === window.YT.PlayerState.PLAYING;
+            setIsPlaying(playing);
+            window.dispatchEvent(new CustomEvent('yt-state', { detail: { playing } }));
             if (event.data === window.YT.PlayerState.ENDED && onNext) {
               onNext();
             }
