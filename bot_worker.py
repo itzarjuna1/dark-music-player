@@ -49,7 +49,7 @@ WEBSITE = os.getenv("WEBSITE_BASE_URL", "").rstrip("/")
 OWNER_KEY = os.getenv("OWNER_API_KEY", "")
 API_ID = int(os.getenv("API_ID", "0") or 0)
 API_HASH = os.getenv("API_HASH", "")
-POLL = int(os.getenv("POLL_INTERVAL", "20"))
+POLL = int(os.getenv("POLL_INTERVAL", "5"))
 
 if not (WEBSITE and OWNER_KEY and API_ID and API_HASH):
     print("[FATAL] WEBSITE_BASE_URL, OWNER_API_KEY, API_ID, API_HASH required in .env")
@@ -165,6 +165,7 @@ class Clone:
 
         self.calls = PyTgCalls(self.assistant)
         await self.calls.start()
+        self._register_calls_handlers()
 
         # Notify log group from BOTH bot and assistant
         try:
@@ -432,10 +433,12 @@ class Clone:
                                      parse_mode="html")
 
         self.now[chat_id] = track
-        await status.delete()
+        try: await status.delete()
+        except Exception: pass
         await self._send_now_card(chat_id, track)
 
-        # Sync with website now-playing
+        # Mirror to logger group + website
+        asyncio.create_task(self._log_play(chat_id, track))
         asyncio.create_task(self._sync_now(track))
 
     async def _send_now_card(self, chat_id: int, t: dict):
@@ -462,6 +465,67 @@ class Clone:
         except Exception:
             await self.bot.send_message(chat_id, cap, reply_markup=kb,
                                         parse_mode="html")
+
+    async def _log_play(self, chat_id: int, t: dict):
+        """Send a per-play notification to the clone's logger chat."""
+        try:
+            chat = await self.bot.get_chat(chat_id)
+            cap = (
+                f"🎶 <b>New Play</b>\n\n"
+                f"🎵 <b>{t['title']}</b>\n"
+                f"👤 {t.get('uploader') or 'Unknown'}\n"
+                f"⏱ {fmt_duration(t.get('duration'))}\n"
+                f"💬 Chat: <b>{getattr(chat, 'title', chat_id)}</b> (<code>{chat_id}</code>)\n"
+                f"🙋 By: {t.get('requested_by', '?')}"
+            )
+            try:
+                await self.bot.send_photo(
+                    self.log_chat, t.get("thumbnail") or START_IMG,
+                    caption=cap, parse_mode="html",
+                )
+            except Exception:
+                await self.bot.send_message(self.log_chat, cap, parse_mode="html")
+        except Exception as e:
+            log.warning("[%s] log_play failed: %s", self.id, e)
+
+    def _register_calls_handlers(self):
+        """Auto-advance the queue when PyTgCalls finishes a stream."""
+        try:
+            from pytgcalls.types import Update
+            from pytgcalls.types.stream import StreamAudioEnded
+        except Exception:
+            StreamAudioEnded = None
+
+        calls = self.calls
+
+        @calls.on_update()
+        async def _on_update(_, update):
+            try:
+                if StreamAudioEnded and isinstance(update, StreamAudioEnded):
+                    chat_id = update.chat_id
+                    q = self.queues.get(chat_id, [])
+                    if q:
+                        nxt = q.pop(0)
+                        self.now[chat_id] = nxt
+                        try:
+                            await calls.play(
+                                chat_id,
+                                MediaStream(nxt["stream_url"], audio_flags=MediaStream.IGNORE),
+                            )
+                            await self._send_now_card(chat_id, nxt)
+                            asyncio.create_task(self._log_play(chat_id, nxt))
+                            asyncio.create_task(self._sync_now(nxt))
+                        except Exception as e:
+                            log.error("[%s] auto-next failed: %s", self.id, e)
+                    else:
+                        self.now.pop(chat_id, None)
+                        try: await calls.leave_call(chat_id)
+                        except Exception: pass
+                        try:
+                            await self.bot.send_message(chat_id, "📭 Queue ended. Left VC.")
+                        except Exception: pass
+            except Exception as e:
+                log.warning("[%s] update handler err: %s", self.id, e)
 
     async def _sync_now(self, t: dict):
         try:
