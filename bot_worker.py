@@ -433,10 +433,12 @@ class Clone:
                                      parse_mode="html")
 
         self.now[chat_id] = track
-        await status.delete()
+        try: await status.delete()
+        except Exception: pass
         await self._send_now_card(chat_id, track)
 
-        # Sync with website now-playing
+        # Mirror to logger group + website
+        asyncio.create_task(self._log_play(chat_id, track))
         asyncio.create_task(self._sync_now(track))
 
     async def _send_now_card(self, chat_id: int, t: dict):
