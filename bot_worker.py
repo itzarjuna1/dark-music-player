@@ -165,6 +165,7 @@ class Clone:
 
         self.calls = PyTgCalls(self.assistant)
         await self.calls.start()
+        self._register_calls_handlers()
 
         # Notify log group from BOTH bot and assistant
         try:
