@@ -21,9 +21,11 @@ bash deploy/start-all.sh
 ```
 
 The website runs on `:8080` and `bot_worker.py` keeps polling the website's
-`/clones` endpoint. **Any clone you add in the Developer Portal is spawned
-automatically within ~20s** — bot + assistant both connect, both send a
-startup message to the log group.
+`/clones` endpoint. **Any clone ANY user creates in the Developer Portal is
+auto-spawned within ~5s** — the owner API key acts as a global VPS-worker key
+that fetches every active clone across the platform. Bot + assistant both
+connect, both send a startup message to that clone's logger group, and every
+`/play` is mirrored to the same logger group with thumbnail + chat info.
 
 ## Auto-restart on reboot (systemd)
 
