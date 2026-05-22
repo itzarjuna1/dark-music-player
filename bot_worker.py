@@ -49,7 +49,7 @@ WEBSITE = os.getenv("WEBSITE_BASE_URL", "").rstrip("/")
 OWNER_KEY = os.getenv("OWNER_API_KEY", "")
 API_ID = int(os.getenv("API_ID", "0") or 0)
 API_HASH = os.getenv("API_HASH", "")
-POLL = int(os.getenv("POLL_INTERVAL", "20"))
+POLL = int(os.getenv("POLL_INTERVAL", "5"))
 
 if not (WEBSITE and OWNER_KEY and API_ID and API_HASH):
     print("[FATAL] WEBSITE_BASE_URL, OWNER_API_KEY, API_ID, API_HASH required in .env")
