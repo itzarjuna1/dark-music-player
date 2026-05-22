@@ -311,10 +311,12 @@ Deno.serve(async (req) => {
       }
 
       if (req.method === 'GET') {
+        // Owner key acts as the VPS worker key: it returns ALL active clones
+        // across every user so a single supervisor on the VPS can auto-spawn
+        // every clone the moment it's created on the website.
         const { data: clones, error } = await supabase
           .from('bot_clones')
-          .select('id, name, bot_token, logger_chat_id, assistant_string_session, assistant_name, api_id, api_hash, is_active, last_heartbeat, notes, created_at, updated_at')
-          .eq('owner_api_key', apiKey)
+          .select('id, name, bot_token, logger_chat_id, assistant_string_session, assistant_name, api_id, api_hash, is_active, last_heartbeat, notes, owner_api_key, created_at, updated_at')
           .eq('is_active', true)
           .order('created_at', { ascending: false });
         if (error) return json({ error: error.message }, 500);
@@ -323,14 +325,13 @@ Deno.serve(async (req) => {
       }
 
       if (req.method === 'POST') {
-        // Heartbeat: bot pings to mark a clone as alive
+        // Heartbeat: VPS worker pings to mark a clone as alive
         const body = await req.json().catch(() => ({}));
         if (body?.heartbeat && body?.clone_id) {
           await supabase
             .from('bot_clones')
             .update({ last_heartbeat: new Date().toISOString() })
-            .eq('id', body.clone_id)
-            .eq('owner_api_key', apiKey);
+            .eq('id', body.clone_id);
           await recordUsage(200);
           return json({ ok: true });
         }
