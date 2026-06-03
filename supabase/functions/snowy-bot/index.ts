@@ -507,10 +507,24 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Health check
+  // Health check + one-shot webhook setup
   if (req.method === "GET") {
-    return json({ ok: true, service: "snowy-bot webhook" });
+    const u = new URL(req.url);
+    if (u.searchParams.get("setup") === "1") {
+      const projectId =
+        Deno.env.get("SUPABASE_PROJECT_ID") ||
+        (Deno.env.get("SUPABASE_URL") || "").match(/https:\/\/([^.]+)/)?.[1];
+      const webhookUrl = `https://${projectId}.supabase.co/functions/v1/snowy-bot`;
+      const res = await tgCall("setWebhook", {
+        url: webhookUrl,
+        allowed_updates: ["message", "callback_query"],
+        drop_pending_updates: true,
+      });
+      return json({ webhook_url: webhookUrl, telegram_response: res });
+    }
+    return json({ ok: true, service: "snowy-bot webhook", hint: "append ?setup=1 to register webhook" });
   }
+
 
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
