@@ -15,7 +15,7 @@ const json = (d: unknown, s = 200) =>
 // ---- Telegram helpers ----
 const BOT_TOKEN = () => Deno.env.get("SNOWY_BOT_TOKEN") || "";
 const LOGGER_CHAT_ID = () => Deno.env.get("SNOWY_LOGGER_CHAT_ID") || "";
-const START_IMAGE = "https://envs.sh/CSn.jpg";
+const START_IMAGE = "https://graph.org/file/91f8d6a8fd408555c2aa4-202c7be9409983cefd.jpg";
 
 async function tgCall(method: string, body: Record<string, unknown>) {
   const token = BOT_TOKEN();
