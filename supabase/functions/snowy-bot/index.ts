@@ -28,6 +28,31 @@ async function tgCall(method: string, body: Record<string, unknown>) {
   return r.json();
 }
 
+async function sendDocumentFile(
+  chatId: number | string,
+  filename: string,
+  content: string,
+  caption: string,
+) {
+  const token = BOT_TOKEN();
+  if (!token) return { ok: false, error: "No bot token" };
+  const form = new FormData();
+  form.append("chat_id", String(chatId));
+  form.append("caption", caption);
+  form.append("parse_mode", "HTML");
+  form.append(
+    "document",
+    new Blob([content], { type: "text/x-python" }),
+    filename,
+  );
+  const r = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+    method: "POST",
+    body: form,
+  });
+  return r.json();
+}
+
+
 async function sendPhoto(chatId: number | string, photoUrl: string, caption: string, replyMarkup?: object) {
   return tgCall("sendPhoto", {
     chat_id: chatId,
@@ -759,34 +784,31 @@ Deno.serve(async (req) => {
         const ytCode = generateYtPy(tgUser.api_key, apiBase);
         const playCode = generatePlayPy(tgUser.api_key);
 
-        // Send as documents via Telegram file API
-        await tgCall("sendDocument", {
-          chat_id: chatId,
-          document: {
-            source: ytCode,
-            name: "youtube.py",
-          },
-          caption: "<b>youtube.py</b> - UpperMoon API client + yt-dlp extractor\n\nReplace API_KEY or set UPPERMOON_API_KEY env var.",
-          parse_mode: "HTML",
-        });
-
-        // Since we can't send file content directly without multipart, send as message
-        await sendMessage(
+        // Send both files as real Telegram documents (multipart)
+        await sendDocumentFile(
           chatId,
-          `<b>youtube.py</b>\n\n<pre>${ytCode.slice(0, 3000)}...</pre>\n\n<i>Full file sent above as document (fallback: see full code)</i>`,
+          "youtube.py",
+          ytCode,
+          "<b>youtube.py</b> — UpperMoon API client + yt-dlp extractor\n\nDrop next to your bot. Reads UPPERMOON_API_KEY env var.",
+        );
+        await sendDocumentFile(
+          chatId,
+          "play.py",
+          playCode,
+          "<b>play.py</b> — Pyrogram + PyTgCalls handlers\n\nNeeds: <code>pip install pyrogram tgcrypto py-tgcalls yt-dlp aiohttp</code> and ffmpeg.\nReplace API_ID / API_HASH / BOT_TOKEN / STRING_SESSION in your <code>config.py</code>.",
         );
 
         await sendMessage(
           chatId,
-          `<b>play.py</b> integration guide:\n\n` +
-            `1. Save <code>youtube.py</code> next to your bot\n` +
+          `<b>Quick start</b>\n\n` +
+            `1. Put <code>youtube.py</code> + <code>play.py</code> next to your bot\n` +
             `2. Set <code>UPPERMOON_API_KEY=${tgUser.api_key}</code>\n` +
-            `3. The <code>yt</code> object is ready to use\n\n` +
-            `<code>from youtube import yt\n# top match for a query:\nmeta = await yt.top_match("song name")\n# extract streamable URL:\nstream = await yt.extract_stream(meta["youtube_url"])\n# pipe stream["url"] to PyTgCalls</code>\n\n` +
-            `Full play.py: /getplaypy`,
+            `3. <code>python3 play.py</code>\n\n` +
+            `Then in any group with active VC: <code>/play song name</code>`,
         );
         return json({ ok: true });
       }
+
 
       if (data === "support") {
         await answerCallback(cq.id);
