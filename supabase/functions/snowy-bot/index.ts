@@ -74,15 +74,23 @@ async function sendMessage(chatId: number | string, text: string, replyMarkup?: 
 }
 
 async function editMessage(chatId: number | string, messageId: number, text: string, replyMarkup?: object) {
-  return tgCall("editMessageText", {
+  // Try editMessageText; if the source message is a photo (start card),
+  // Telegram rejects it — fall back to editMessageCaption.
+  const base = {
     chat_id: chatId,
     message_id: messageId,
-    text,
     parse_mode: "HTML",
     disable_web_page_preview: true,
     ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-  });
+  };
+  const r1 = await tgCall("editMessageText", { ...base, text });
+  if ((r1 as any)?.ok) return r1;
+  const r2 = await tgCall("editMessageCaption", { ...base, caption: text });
+  if ((r2 as any)?.ok) return r2;
+  // Last-resort: send as a new message so the user always sees something
+  return sendMessage(chatId, text, replyMarkup);
 }
+
 
 async function answerCallback(callbackQueryId: string, text?: string, showAlert = false) {
   return tgCall("answerCallbackQuery", {
