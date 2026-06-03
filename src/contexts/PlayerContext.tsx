@@ -240,19 +240,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Listen for YT iframe state changes to keep context in sync
+  // Listen for YT iframe state changes to keep context in sync + advance on end
   useEffect(() => {
     const onState = (e: any) => setIsPlaying(!!e.detail?.playing);
     const onReady = (e: any) => {
       if (e.detail?.duration) setDuration(e.detail.duration);
     };
+    const onEnded = () => handleTrackEnd();
     window.addEventListener('yt-state', onState);
     window.addEventListener('yt-ready', onReady);
+    window.addEventListener('yt-ended', onEnded);
     return () => {
       window.removeEventListener('yt-state', onState);
       window.removeEventListener('yt-ready', onReady);
+      window.removeEventListener('yt-ended', onEnded);
     };
-  }, []);
+  }, [queue, currentTrack, repeat, shuffle]);
+
 
   // Track YT currentTime
   useEffect(() => {
@@ -272,20 +276,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (queue.length === 0) return;
 
     const currentIndex = queue.findIndex(t => t.id === currentTrack?.id);
-    let nextIndex;
+    let nextIndex: number;
 
     if (shuffle) {
       nextIndex = Math.floor(Math.random() * queue.length);
-    } else if (repeat === 'all' && currentIndex === queue.length - 1) {
+    } else if (currentIndex === -1) {
+      // Current track isn't in queue — start from the top
       nextIndex = 0;
+    } else if (currentIndex >= queue.length - 1) {
+      nextIndex = repeat === 'all' ? 0 : -1;
     } else {
       nextIndex = currentIndex + 1;
     }
 
-    if (nextIndex < queue.length) {
+    if (nextIndex >= 0 && nextIndex < queue.length) {
       playTrack(queue[nextIndex]);
     }
   };
+
 
   const previousTrack = () => {
     if (queue.length === 0) return;
