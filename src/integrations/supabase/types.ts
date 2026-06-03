@@ -23,10 +23,12 @@ export type Database = {
           id: string
           is_active: boolean
           is_owner: boolean
+          last_renewed_at: string | null
           monthly_quota: number
           name: string
           plan: string
           requests_used: number
+          telegram_user_id: number | null
           updated_at: string
         }
         Insert: {
@@ -37,10 +39,12 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_owner?: boolean
+          last_renewed_at?: string | null
           monthly_quota?: number
           name?: string
           plan?: string
           requests_used?: number
+          telegram_user_id?: number | null
           updated_at?: string
         }
         Update: {
@@ -51,10 +55,12 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_owner?: boolean
+          last_renewed_at?: string | null
           monthly_quota?: number
           name?: string
           plan?: string
           requests_used?: number
+          telegram_user_id?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -510,6 +516,33 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      telegram_api_users: {
+        Row: {
+          api_key: string | null
+          created_at: string
+          first_name: string | null
+          telegram_user_id: number
+          telegram_username: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string | null
+          created_at?: string
+          first_name?: string | null
+          telegram_user_id: number
+          telegram_username?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string | null
+          created_at?: string
+          first_name?: string | null
+          telegram_user_id?: number
+          telegram_username?: string | null
           updated_at?: string
         }
         Relationships: []
