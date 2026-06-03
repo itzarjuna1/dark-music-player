@@ -97,10 +97,12 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             const playing = event.data === window.YT.PlayerState.PLAYING;
             setIsPlaying(playing);
             window.dispatchEvent(new CustomEvent('yt-state', { detail: { playing } }));
-            if (event.data === window.YT.PlayerState.ENDED && onNext) {
-              onNext();
+            if (event.data === window.YT.PlayerState.ENDED) {
+              window.dispatchEvent(new CustomEvent('yt-ended'));
+              if (onNext) onNext();
             }
           },
+
         },
       });
     };
