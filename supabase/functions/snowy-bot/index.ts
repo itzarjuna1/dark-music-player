@@ -500,7 +500,7 @@ function formatUsage(keyRow: any): string {
     ? `Last renewed: ${new Date(keyRow.last_renewed_at).toLocaleDateString("en-GB")}`
     : "Never renewed";
   return (
-    `<b>API Usage Stats</b>\n\n` +
+    `<b>API Usage Stats</b>\n\n` +m
     `Key: <code>${maskKey(keyRow.api_key)}</code>\n` +
     `Plan: <b>${keyRow.plan}</b>\n` +
     `Status: ${keyRow.is_active ? "Active" : "Inactive"}\n\n` +
@@ -639,10 +639,10 @@ Deno.serve(async (req) => {
 
         const markup = {
           inline_keyboard: [
-            [{ text: "API Usage", callback_data: "api_usage" }],
-            [{ text: "Renew API Key (24h)", callback_data: "renew_blocked" }],
-            [{ text: "Get Integration Files", callback_data: "get_files" }],
-            [{ text: "Support Group", url: "https://t.me/theinfinity_support" }],
+            [{ text: "🌸ᴀᴘɪ ᴜsᴀɢᴇ", callback_data: "api_usage" }],
+            [{ text: "🔂ʀᴇɴᴇᴡ ʏᴏᴜʀ ᴀᴘɪ ᴋᴇʏ (24h)", callback_data: "renew_blocked" }],
+            [{ text: "📂ɢᴇᴛ ɪɴᴛᴇɢʀᴀᴛɪᴏɴ ғɪʟᴇs", callback_data: "get_files" }],
+            [{ text: "🦋sᴜᴘᴘᴏʀᴛ ɢʀᴏᴜᴘ", url: "https://t.me/theinfinity_support" }],
           ],
         };
 
@@ -665,7 +665,7 @@ Deno.serve(async (req) => {
         if (loggerChat) {
           await sendMessage(
             loggerChat,
-            `New API Key Generated\n\nUser: ${cq.from?.first_name} (@${cq.from?.username || "no_username"})\nID: <code>${userId}</code>\nKey: <code>${maskKey(newKey)}</code>\nPlan: Free`,
+            `👀ɴᴇᴡ ᴀᴘɪ ᴋᴇʏ ʀᴇǫᴜᴇsᴛ ʜᴀɴᴅʟᴇᴅ\n\n👥ᴜsᴇʀ: ${cq.from?.first_name} (@${cq.from?.username || "no_username"})\n🆔: <code>${userId}</code>\n🔑: <code>${maskKey(newKey)}</code>\nᴘʟᴀɴ🌐: Free`,
           );
         }
         return json({ ok: true });
@@ -836,8 +836,8 @@ Deno.serve(async (req) => {
         await answerCallback(cq.id);
         const markup = {
           inline_keyboard: [
-            [{ text: "Support Group", url: "https://t.me/theinfinity_support" }],
-            [{ text: "Back", callback_data: "back_main" }],
+            [{ text: "sᴜᴘᴘᴏʀᴛ ɢʀᴏᴜᴘ", url: "https://t.me/theinfinity_support" }],
+            [{ text: "ʙᴀᴄᴋ", callback_data: "back_main" }],
           ],
         };
         await editMessage(
@@ -865,7 +865,7 @@ Deno.serve(async (req) => {
             [{ text: "API Usage & Stats", callback_data: "api_usage" }],
             [
               { text: "Support Group", callback_data: "support" },
-              { text: "Our Channel", url: "https://t.me/theinfinity_support" },
+              { text: "Our Channel", url: "https://t.me/theinfinitynetwork" },
             ],
           ],
         };
