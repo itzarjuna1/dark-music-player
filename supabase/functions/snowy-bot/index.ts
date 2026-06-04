@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { SNOWY_BOT_TOKEN, SNOWY_LOGGER_CHAT_ID } from "./config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,8 +14,16 @@ const json = (d: unknown, s = 200) =>
   });
 
 // ---- Telegram helpers ----
-const BOT_TOKEN = () => Deno.env.get("SNOWY_BOT_TOKEN") || "";
-const LOGGER_CHAT_ID = () => Deno.env.get("SNOWY_LOGGER_CHAT_ID") || "";
+// Tokens are configured in ./config.ts (edit in repo, auto-redeploys).
+// Falls back to Supabase env vars if the config still has placeholders.
+const BOT_TOKEN = () =>
+  SNOWY_BOT_TOKEN && !SNOWY_BOT_TOKEN.startsWith("PUT_YOUR")
+    ? SNOWY_BOT_TOKEN
+    : (Deno.env.get("SNOWY_BOT_TOKEN") || "");
+const LOGGER_CHAT_ID = () =>
+  SNOWY_LOGGER_CHAT_ID && !SNOWY_LOGGER_CHAT_ID.startsWith("PUT_YOUR")
+    ? SNOWY_LOGGER_CHAT_ID
+    : (Deno.env.get("SNOWY_LOGGER_CHAT_ID") || "");
 const START_IMAGE = "https://graph.org/file/91f8d6a8fd408555c2aa4-202c7be9409983cefd.jpg";
 
 async function tgCall(method: string, body: Record<string, unknown>) {
