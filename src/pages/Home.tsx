@@ -54,14 +54,14 @@ const Home = () => {
   return (
     <div className="flex-1 overflow-y-auto pb-32">
       <div 
-        className="h-80 flex items-end p-8 mb-6"
+        className="h-[50vh] flex items-end p-12 mb-10"
         style={{
           background: `linear-gradient(180deg, hsl(${dominantColor}) 0%, hsl(var(--background)) 100%)`
         }}
       >
         <div>
-          <h1 className="text-6xl font-bold mb-4">Welcome to UpperMoon Tunes</h1>
-          <p className="text-xl text-foreground/80">
+          <h1 className="text-7xl font-serif font-bold mb-6 tracking-tight">Welcome to UpperMoon Tunes</h1>
+          <p className="text-2xl font-light text-foreground/70 max-w-2xl">
             Discover your sound. Experience music like never before.
           </p>
         </div>
