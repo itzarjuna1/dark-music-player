@@ -9,13 +9,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-[0_0_20px_hsl(var(--primary)/0.5)] active:shadow-[0_0_30px_hsl(var(--primary)/0.8)]",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90  active:shadow-[0_0_30px_hsl(var(--primary)/0.8)]",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:shadow-[0_0_20px_hsl(var(--destructive)/0.5)]",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary hover:shadow-[0_0_15px_hsl(var(--primary)/0.3)]",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:shadow-[0_0_20px_hsl(var(--secondary)/0.5)]",
-        ghost: "hover:bg-accent hover:text-accent-foreground hover:shadow-[0_0_15px_hsl(var(--accent)/0.3)]",
+        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground hover:border-primary ",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 ",
+        ghost: "hover:bg-accent hover:text-accent-foreground ",
         link: "text-primary underline-offset-4 hover:underline",
-        rgb: "relative overflow-hidden bg-gradient-to-r from-primary via-accent to-secondary text-primary-foreground hover:shadow-[0_0_30px_hsl(var(--primary)/0.6),0_0_60px_hsl(var(--accent)/0.4)] before:absolute before:inset-0 before:bg-gradient-to-r before:from-primary before:via-accent before:to-secondary before:animate-gradient-x",
+        rgb: "bg-primary text-primary-foreground hover:bg-primary/90",
       },
       size: {
         default: "h-10 px-4 py-2",

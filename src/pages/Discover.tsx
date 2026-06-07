@@ -105,7 +105,7 @@ const Discover = () => {
                 disabled={loading}
                 className={`
                   relative p-5 rounded-lg bg-secondary/30 border border-border 
-                  hover:scale-105 smooth-transition hover-glow glass
+                  hover:scale-105 smooth-transition  glass
                   ${selectedMood === mood.id ? 'ring-4 ring-primary' : ''}
                   disabled:opacity-50 disabled:cursor-not-allowed
                 `}
@@ -127,7 +127,7 @@ const Discover = () => {
                 onClick={() => getRecommendations('any', activity.id)}
                 disabled={loading}
                 variant="outline"
-                className="h-20 text-lg hover-glow"
+                className="h-20 text-lg "
               >
                 {activity.name}
               </Button>

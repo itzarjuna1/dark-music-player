@@ -224,7 +224,7 @@ const Search = () => {
               onClick={() => setSmartSearchEnabled(!smartSearchEnabled)}
               variant={smartSearchEnabled ? 'default' : 'outline'}
               size="sm"
-              className="hover-glow"
+              className=""
             >
               <Sparkles className="w-4 h-4 mr-2" />
               Smart
@@ -286,7 +286,7 @@ const Search = () => {
                 handleSmartSearch(query);
               }
             }}
-            className="pl-12 h-12 bg-card border-border text-lg glass hover-glow"
+            className="pl-12 h-12 bg-card border-border text-lg glass "
           />
         </div>
         {smartSearchEnabled && (

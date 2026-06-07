@@ -509,7 +509,7 @@ function formatUsage(keyRow: any): string {
     ? `Last renewed: ${new Date(keyRow.last_renewed_at).toLocaleDateString("en-GB")}`
     : "Never renewed";
   return (
-    `<b>API Usage Stats</b>\n\n` +m
+    `<b>API Usage Stats</b>\n\n` +
     `Key: <code>${maskKey(keyRow.api_key)}</code>\n` +
     `Plan: <b>${keyRow.plan}</b>\n` +
     `Status: ${keyRow.is_active ? "Active" : "Inactive"}\n\n` +

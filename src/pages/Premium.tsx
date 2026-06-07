@@ -39,7 +39,7 @@ const Premium = () => {
       <div className="max-w-4xl mx-auto">
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary via-accent to-secondary mb-6 animate-float">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary via-accent to-secondary mb-6 ">
             <Crown className="w-10 h-10 text-primary-foreground" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">
@@ -51,7 +51,7 @@ const Premium = () => {
         </div>
 
         {/* Pricing Card */}
-        <Card className="glass border-primary/30 p-8 mb-12 card-rgb-hover">
+        <Card className="glass border-primary/30 p-8 mb-12 ">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="flex-1">
               <div className="flex items-baseline gap-2 mb-4">
@@ -74,7 +74,7 @@ const Premium = () => {
             <div className="flex flex-col items-center gap-4 min-w-[200px]">
               <Button 
                 onClick={handlePayment}
-                className="w-full btn-rgb text-lg py-6"
+                className="w-full default text-lg py-6"
                 size="lg"
               >
                 <Crown className="w-5 h-5 mr-2" />
