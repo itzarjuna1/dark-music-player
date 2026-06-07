@@ -36,10 +36,15 @@ const Sidebar = () => {
     <div className="p-4 sm:p-6">
       <div className="flex items-center justify-between mb-6 sm:mb-8">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-lg shrink-0"></span>
-          <h1 className="text-lg font-serif font-bold tracking-widest text-foreground leading-tight truncate">
-            UPPERMOON TUNES
-          </h1>
+          <span className="text-lg shrink-0">◐</span>
+          <div className="min-w-0">
+            <h1 className="text-lg font-serif font-semibold text-foreground leading-tight truncate">
+              UpperMoon Tunes
+            </h1>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground truncate">
+              Music system
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <ThemeToggle />
@@ -61,17 +66,17 @@ const Sidebar = () => {
             to={item.to}
             end={item.to === '/'}
             className={cn(
-              'flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent smooth-transition select-none',
-              item.highlight === 'premium' && 'border border-primary/20 bg-primary/5',
-              item.highlight === 'dev' && 'border border-blue-500/20 bg-blue-500/5'
+              'flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg border border-transparent text-sidebar-foreground hover:bg-sidebar-accent hover:border-sidebar-border smooth-transition select-none',
+              item.highlight === 'premium' && 'border-primary/20 bg-sidebar-accent',
+              item.highlight === 'dev' && 'border-sidebar-border bg-sidebar-accent/70'
             )}
-            activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+            activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-semibold border-sidebar-border"
           >
             <item.icon
               className={cn(
                 'w-5 h-5 shrink-0',
                 item.highlight === 'premium' && 'text-primary',
-                item.highlight === 'dev' && 'text-blue-500'
+                item.highlight === 'dev' && 'text-foreground'
               )}
             />
             <span className="font-medium text-sm sm:text-base truncate">{item.label}</span>
