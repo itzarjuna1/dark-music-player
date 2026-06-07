@@ -12,6 +12,10 @@ cd /root && git clone <your-repo-url> uppermoon-tunes && cd uppermoon-tunes
 # 3. Config
 cp .env.bot.example .env
 nano .env          # fill OWNER_API_KEY (umowner_…), API_ID, API_HASH
+
+# 4. Snowy webhook bot (optional)
+# edit supabase/functions/snowy-bot/config.ts with your bot token + logger id,
+# then save so the backend redeploys.
 ```
 
 ## Start everything
