@@ -53,12 +53,12 @@ const TrackCard = ({ track, onCustomClick }: TrackCardProps) => {
   };
 
   return (
-    <div className="group relative bg-card rounded-lg p-4 hover:bg-secondary smooth-transition cursor-pointer">
+    <div className="group relative bg-card rounded-sm p-4 hover:bg-secondary smooth-transition cursor-pointer">
       <div className="relative mb-4">
         <img
           src={track.cover}
           alt={track.title}
-          className="w-full aspect-square object-cover rounded-md"
+          className="w-full aspect-square object-cover rounded-sm"
         />
         <button
           onClick={(e) => {

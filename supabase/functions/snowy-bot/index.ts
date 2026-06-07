@@ -509,7 +509,7 @@ function formatUsage(keyRow: any): string {
     ? `Last renewed: ${new Date(keyRow.last_renewed_at).toLocaleDateString("en-GB")}`
     : "Never renewed";
   return (
-    `<b>API Usage Stats</b>\n\n` +m
+    `<b>API Usage Stats</b>\n\n` +
     `Key: <code>${maskKey(keyRow.api_key)}</code>\n` +
     `Plan: <b>${keyRow.plan}</b>\n` +
     `Status: ${keyRow.is_active ? "Active" : "Inactive"}\n\n` +
@@ -528,6 +528,9 @@ Deno.serve(async (req) => {
   if (req.method === "GET") {
     const u = new URL(req.url);
     if (u.searchParams.get("setup") === "1") {
+      if (!BOT_TOKEN()) {
+        return json({ error: "Snowy bot token is empty. Add it in supabase/functions/snowy-bot/config.ts or use the backend secret." }, 400);
+      }
       const projectId =
         Deno.env.get("SUPABASE_PROJECT_ID") ||
         (Deno.env.get("SUPABASE_URL") || "").match(/https:\/\/([^.]+)/)?.[1];

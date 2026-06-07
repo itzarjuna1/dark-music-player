@@ -85,12 +85,7 @@ const Player = () => {
       <div 
         className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
         style={{
-          background: `linear-gradient(135deg, 
-            rgba(75, 70, 95, 0.85) 0%, 
-            rgba(90, 70, 120, 0.80) 25%,
-            rgba(60, 55, 85, 0.85) 50%,
-            rgba(100, 80, 130, 0.80) 75%,
-            rgba(70, 65, 100, 0.85) 100%)`,
+          background: `radial-gradient(circle at center, ${dominantColor ? `hsl(${dominantColor} / 0.18)` : 'hsl(var(--background))'} 0%, hsl(var(--background)) 58%, hsl(var(--card)) 100%)`,
           backdropFilter: 'blur(20px)',
         }}
       >

@@ -54,21 +54,22 @@ const Home = () => {
   return (
     <div className="flex-1 overflow-y-auto pb-32">
       <div 
-        className="h-80 flex items-end p-8 mb-6"
+        className="min-h-[22rem] flex items-end px-6 sm:px-8 lg:px-12 py-10 mb-10 border-b border-border"
         style={{
-          background: `linear-gradient(180deg, hsl(${dominantColor}) 0%, hsl(var(--background)) 100%)`
+          background: `linear-gradient(180deg, hsl(${dominantColor} / 0.18) 0%, hsl(var(--background)) 72%)`
         }}
       >
-        <div>
-          <h1 className="text-6xl font-bold mb-4">Welcome to UpperMoon Tunes</h1>
-          <p className="text-xl text-foreground/80">
-            Discover your sound. Experience music like never before.
+        <div className="max-w-3xl">
+          <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-4">Editorial listening</p>
+          <h1 className="text-5xl sm:text-6xl font-serif font-semibold mb-6 tracking-tight">UpperMoon Tunes</h1>
+          <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl">
+            A cleaner music experience with full-track discovery, calmer hierarchy, and a more polished listening surface.
           </p>
         </div>
       </div>
 
       <div className="px-8">
-        <h2 className="text-3xl font-bold mb-6">Featured Tracks</h2>
+        <h2 className="text-3xl font-serif font-semibold mb-6">Featured Tracks</h2>
         
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">

@@ -113,22 +113,22 @@ export default function DeveloperPortal() {
 
   return (
     <div className="flex-1 overflow-y-auto pb-32 p-4 sm:p-6 lg:p-8 animate-fade-in">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Hero */}
-        <div className="mb-8">
+        <section className="mb-8 border-b border-border pb-8">
           <div className="flex items-center gap-3 mb-3 flex-wrap">
             <Code className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl sm:text-4xl font-bold">Developer Portal</h1>
+            <h1 className="text-3xl sm:text-4xl font-serif font-semibold">Developer Portal</h1>
             <Badge variant="secondary" className="text-xs">Beta</Badge>
           </div>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Connect your Telegram music bot to UpperMoon Tunes. Get an API key and search YouTube music & shorts — clean metadata, no yt-dlp on our side.
+          <p className="text-muted-foreground text-sm sm:text-base max-w-3xl">
+            Connect your Telegram music bot, issue owner keys, and separate API access from clone hosting with a cleaner control surface.
           </p>
-        </div>
+        </section>
 
         {/* Pricing */}
-        <Card className="p-4 sm:p-6 mb-6 bg-card/50 backdrop-blur">
-          <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2">
+        <Card className="p-4 sm:p-6 mb-6 bg-card/70 backdrop-blur border-border">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4 flex items-center gap-2 font-serif">
             <Crown className="w-5 h-5 text-yellow-500" /> Plans & Pricing
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -157,8 +157,8 @@ export default function DeveloperPortal() {
         </Card>
 
         {/* API endpoint info */}
-        <Card className="p-4 sm:p-6 mb-6 bg-card/50 backdrop-blur">
-          <h2 className="text-lg sm:text-xl font-semibold mb-3 flex items-center gap-2">
+        <Card className="p-4 sm:p-6 mb-6 bg-card/70 backdrop-blur border-border">
+          <h2 className="text-lg sm:text-xl font-semibold mb-3 flex items-center gap-2 font-serif">
             <Shield className="w-5 h-5 text-primary" /> API Endpoint
           </h2>
           <div className="space-y-2 text-sm">
@@ -183,8 +183,8 @@ export default function DeveloperPortal() {
         </Card>
 
         {/* Keys list */}
-        <Card className="p-4 sm:p-6 bg-card/50 backdrop-blur">
-          <h2 className="text-lg sm:text-xl font-semibold mb-4">Your API Keys</h2>
+        <Card className="p-4 sm:p-6 bg-card/70 backdrop-blur border-border">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4 font-serif">Your API Keys</h2>
           {loading ? (
             <p className="text-muted-foreground text-sm">Loading…</p>
           ) : keys.length === 0 ? (
