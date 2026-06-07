@@ -528,6 +528,9 @@ Deno.serve(async (req) => {
   if (req.method === "GET") {
     const u = new URL(req.url);
     if (u.searchParams.get("setup") === "1") {
+      if (!BOT_TOKEN()) {
+        return json({ error: "Snowy bot token is empty. Add it in supabase/functions/snowy-bot/config.ts or use the backend secret." }, 400);
+      }
       const projectId =
         Deno.env.get("SUPABASE_PROJECT_ID") ||
         (Deno.env.get("SUPABASE_URL") || "").match(/https:\/\/([^.]+)/)?.[1];
