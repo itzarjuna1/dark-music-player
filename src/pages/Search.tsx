@@ -250,7 +250,7 @@ const Search = () => {
           >
             <Youtube className="w-4 h-4" />
             YouTube
-            <Badge variant="secondary" className="bg-destructive/20 text-destructive text-xs">Full Song</Badge>
+            <Badge variant="secondary" className="border border-destructive/30 text-destructive/70 text-xs">Full Song</Badge>
           </Button>
           <Button
             onClick={() => { setSearchSource('jamendo'); if (query.length >= 2) handleSearch(query); }}
@@ -260,7 +260,7 @@ const Search = () => {
           >
             <Radio className="w-4 h-4" />
             Jamendo
-            <Badge variant="secondary" className="bg-primary/20 text-primary text-xs">Full Track</Badge>
+            <Badge variant="secondary" className="border border-primary/30 text-primary/70 text-xs">Full Track</Badge>
           </Button>
           <Button
             onClick={() => { setSearchSource('itunes'); if (query.length >= 2) handleSearch(query); }}
@@ -333,14 +333,14 @@ const Search = () => {
               >
                 {track.source === 'youtube' && (
                   <Badge 
-                    className="absolute top-12 left-2 z-10 bg-destructive/90 text-destructive-foreground text-xs"
+                    className="absolute top-12 left-2 z-10 bg-destructive text-white text-xs"
                   >
                     YouTube
                   </Badge>
                 )}
                 {track.source === 'jamendo' && (
                   <Badge 
-                    className="absolute top-12 left-2 z-10 bg-primary/90 text-primary-foreground text-xs"
+                    className="absolute top-12 left-2 z-10 bg-primary text-white text-xs"
                   >
                     Full Track
                   </Badge>

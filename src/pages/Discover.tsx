@@ -104,14 +104,14 @@ const Discover = () => {
                 onClick={() => getRecommendations(mood.id)}
                 disabled={loading}
                 className={`
-                  relative p-6 rounded-xl bg-gradient-to-br ${mood.color} 
+                  relative p-5 rounded-lg bg-secondary/30 border border-border 
                   hover:scale-105 smooth-transition hover-glow glass
                   ${selectedMood === mood.id ? 'ring-4 ring-primary' : ''}
                   disabled:opacity-50 disabled:cursor-not-allowed
                 `}
               >
-                <mood.icon className="w-8 h-8 text-white mb-2 mx-auto" />
-                <p className="text-white font-semibold">{mood.name}</p>
+                <mood.icon className="w-8 h-8 text-foreground mb-2 mx-auto" />
+                <p className="text-foreground font-semibold">{mood.name}</p>
               </button>
             ))}
           </div>
