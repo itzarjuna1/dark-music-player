@@ -25,7 +25,7 @@ else
     echo "  ⚠ Missing .env — copy .env.bot.example to .env and fill in values"
     exit 1
   fi
-  python3 -m pip install --quiet -r requirements-bot.txt
+  python3 -m pip install --quiet -r requirements.txt
   nohup python3 bot_worker.py > bot_worker.log 2>&1 &
   echo "  PID=$!  (logs: bot_worker.log)"
 fi
