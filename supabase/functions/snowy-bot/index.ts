@@ -37,6 +37,14 @@ async function tgCall(method: string, body: Record<string, unknown>) {
   return r.json();
 }
 
+// Wrap any HTML body inside an expandable blockquote (Telegram MTProto feature).
+// If already wrapped, leave as-is.
+function bq(text: string): string {
+  const t = (text ?? "").toString();
+  if (/^\s*<blockquote/i.test(t)) return t;
+  return `<blockquote expandable>${t}</blockquote>`;
+}
+
 async function sendDocumentFile(
   chatId: number | string,
   filename: string,
@@ -47,7 +55,7 @@ async function sendDocumentFile(
   if (!token) return { ok: false, error: "No bot token" };
   const form = new FormData();
   form.append("chat_id", String(chatId));
-  form.append("caption", caption);
+  form.append("caption", bq(caption));
   form.append("parse_mode", "HTML");
   form.append(
     "document",
@@ -66,8 +74,9 @@ async function sendPhoto(chatId: number | string, photoUrl: string, caption: str
   return tgCall("sendPhoto", {
     chat_id: chatId,
     photo: photoUrl,
-    caption,
+    caption: bq(caption),
     parse_mode: "HTML",
+    has_spoiler: true,
     ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
   });
 }
@@ -75,7 +84,7 @@ async function sendPhoto(chatId: number | string, photoUrl: string, caption: str
 async function sendMessage(chatId: number | string, text: string, replyMarkup?: object) {
   return tgCall("sendMessage", {
     chat_id: chatId,
-    text,
+    text: bq(text),
     parse_mode: "HTML",
     disable_web_page_preview: true,
     ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
@@ -83,8 +92,7 @@ async function sendMessage(chatId: number | string, text: string, replyMarkup?: 
 }
 
 async function editMessage(chatId: number | string, messageId: number, text: string, replyMarkup?: object) {
-  // Try editMessageText; if the source message is a photo (start card),
-  // Telegram rejects it — fall back to editMessageCaption.
+  const wrapped = bq(text);
   const base = {
     chat_id: chatId,
     message_id: messageId,
@@ -92,11 +100,10 @@ async function editMessage(chatId: number | string, messageId: number, text: str
     disable_web_page_preview: true,
     ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
   };
-  const r1 = await tgCall("editMessageText", { ...base, text });
+  const r1 = await tgCall("editMessageText", { ...base, text: wrapped });
   if ((r1 as any)?.ok) return r1;
-  const r2 = await tgCall("editMessageCaption", { ...base, caption: text });
+  const r2 = await tgCall("editMessageCaption", { ...base, caption: wrapped });
   if ((r2 as any)?.ok) return r2;
-  // Last-resort: send as a new message so the user always sees something
   return sendMessage(chatId, text, replyMarkup);
 }
 
