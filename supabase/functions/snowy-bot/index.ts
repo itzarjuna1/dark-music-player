@@ -1100,12 +1100,112 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
+      // /play command — fetch top YouTube match and send a playcard
+      if (text.startsWith("/play") || text.startsWith("/p ") || text === "/p") {
+        const query = text.replace(/^\/(play|p)(@\w+)?\s*/i, "").trim();
+        if (!query) {
+          await sendMessage(chatId, "Usage: <code>/play song name</code>");
+          return json({ ok: true });
+        }
+
+        // 1) Send "Processing..." message
+        const processing = await sendMessage(chatId, `🔎 Processing <b>${query}</b>…`);
+        const processingId = (processing as any)?.result?.message_id;
+
+        try {
+          // 2) Search YouTube Data API directly
+          const ytKey = Deno.env.get("YOUTUBE_API_KEY");
+          if (!ytKey) {
+            if (processingId) await editMessage(chatId, processingId, "❌ YouTube API not configured.");
+            return json({ ok: true });
+          }
+          const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${encodeURIComponent(query)}&key=${ytKey}`;
+          const sr = await fetch(searchUrl).then((r) => r.json());
+          const item = sr?.items?.[0];
+          if (!item) {
+            if (processingId) await editMessage(chatId, processingId, "❌ No results.");
+            return json({ ok: true });
+          }
+          const videoId = item.id.videoId;
+          const title = item.snippet.title;
+          const channel = item.snippet.channelTitle;
+          const thumb =
+            item.snippet.thumbnails?.maxres?.url ||
+            item.snippet.thumbnails?.high?.url ||
+            item.snippet.thumbnails?.medium?.url ||
+            `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+          // Get duration
+          let duration = "";
+          try {
+            const dr = await fetch(
+              `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoId}&key=${ytKey}`,
+            ).then((r) => r.json());
+            const iso = dr?.items?.[0]?.contentDetails?.duration || "";
+            const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+            if (m) {
+              const h = parseInt(m[1] || "0"), mn = parseInt(m[2] || "0"), s = parseInt(m[3] || "0");
+              duration = h ? `${h}:${String(mn).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+                           : `${mn}:${String(s).padStart(2, "0")}`;
+            }
+          } catch (_) {}
+
+          const ytUrl = `https://youtu.be/${videoId}`;
+          const siteUrl = `https://uppermoon-tunes.lovable.app/?v=${videoId}`;
+          const requester = msg.from?.first_name || "Guest";
+
+          const caption =
+            `🎶 <b>Now Playing</b>\n\n` +
+            `🎵 <b>${title}</b>\n` +
+            `👤 ${channel}\n` +
+            (duration ? `⏱ ${duration}\n` : ``) +
+            `🙋 Requested by: ${requester}\n\n` +
+            `<i>Streaming via UpperMoon Tunes assistant…</i>`;
+
+          const markup = {
+            inline_keyboard: [
+              [
+                { text: "▶️ Play on Website", url: siteUrl },
+                { text: "📺 YouTube", url: ytUrl },
+              ],
+            ],
+          };
+
+          // Delete processing, then send playcard photo with spoiler
+          if (processingId) {
+            await tgCall("deleteMessage", { chat_id: chatId, message_id: processingId });
+          }
+          await sendPhoto(chatId, thumb, caption, markup);
+
+          // Log to logger group
+          const loggerChat = LOGGER_CHAT_ID();
+          if (loggerChat) {
+            await sendMessage(
+              loggerChat,
+              `🎵 <b>/play</b>\n` +
+                `User: ${requester} (<code>${userId}</code>)\n` +
+                `Chat: <code>${chatId}</code>\n` +
+                `Track: <b>${title}</b>\n` +
+                `<a href="${ytUrl}">YouTube</a>`,
+            );
+          }
+        } catch (e: any) {
+          if (processingId) {
+            await editMessage(chatId, processingId, `❌ Error: <code>${e?.message || e}</code>`);
+          } else {
+            await sendMessage(chatId, `❌ Error: <code>${e?.message || e}</code>`);
+          }
+        }
+        return json({ ok: true });
+      }
+
       // /help command
       if (text.startsWith("/help")) {
         await sendMessage(
           chatId,
           `<b>UpperMoon Tunes API Bot Commands</b>\n\n` +
             `/start - Welcome & main menu\n` +
+            `/play &lt;song&gt; - Send playcard for a track\n` +
             `/mykey - View your current API key\n` +
             `/renew - Renew your API key (once/24h)\n` +
             `/usage - View API usage stats\n` +
