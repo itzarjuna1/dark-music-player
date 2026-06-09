@@ -340,6 +340,62 @@ export type Database = {
         }
         Relationships: []
       }
+      playback_jobs: {
+        Row: {
+          chat_id: number
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          query: string
+          requested_by: string | null
+          requested_by_user_id: number | null
+          source: string
+          status: string
+          target_clone_id: string
+          updated_at: string
+        }
+        Insert: {
+          chat_id: number
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          query: string
+          requested_by?: string | null
+          requested_by_user_id?: number | null
+          source?: string
+          status?: string
+          target_clone_id: string
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: number
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          query?: string
+          requested_by?: string | null
+          requested_by_user_id?: number | null
+          source?: string
+          status?: string
+          target_clone_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playback_jobs_target_clone_id_fkey"
+            columns: ["target_clone_id"]
+            isOneToOne: false
+            referencedRelation: "bot_clones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       playlist_activity: {
         Row: {
           action: string

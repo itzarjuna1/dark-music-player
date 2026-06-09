@@ -107,6 +107,54 @@ async function editMessage(chatId: number | string, messageId: number, text: str
   return sendMessage(chatId, text, replyMarkup);
 }
 
+async function queuePlaybackJob(
+  supabase: ReturnType<typeof createClient>,
+  query: string,
+  chatId: number,
+  requester: string,
+  requesterUserId?: number,
+) {
+  let { data: clone, error: cloneError } = await supabase
+    .from("bot_clones")
+    .select("id, name, bot_token, is_active")
+    .eq("is_active", true)
+    .eq("bot_token", BOT_TOKEN())
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (cloneError) throw new Error(cloneError.message);
+  if (!clone?.id) {
+    const fallback = await supabase
+      .from("bot_clones")
+      .select("id, name, bot_token, is_active")
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (fallback.error) throw new Error(fallback.error.message);
+    clone = fallback.data;
+  }
+  if (!clone?.id) throw new Error("No active assistant clone is linked to this bot token.");
+
+  const { data: job, error: jobError } = await supabase
+    .from("playback_jobs")
+    .insert({
+      target_clone_id: clone.id,
+      source: "snowy",
+      chat_id: chatId,
+      query,
+      requested_by: requester,
+      requested_by_user_id: requesterUserId || null,
+      status: "pending",
+    })
+    .select("id, target_clone_id")
+    .single();
+
+  if (jobError) throw new Error(jobError.message);
+  return { clone, job };
+}
+
 
 async function answerCallback(callbackQueryId: string, text?: string, showAlert = false) {
   return tgCall("answerCallbackQuery", {
@@ -1154,13 +1202,21 @@ Deno.serve(async (req) => {
           const siteUrl = `https://uppermoon-tunes.lovable.app/?v=${videoId}`;
           const requester = msg.from?.first_name || "Guest";
 
+          const { clone, job } = await queuePlaybackJob(
+            supabase,
+            query,
+            Number(chatId),
+            requester,
+            userId,
+          );
+
           const caption =
             `🎶 <b>Now Playing</b>\n\n` +
             `🎵 <b>${title}</b>\n` +
             `👤 ${channel}\n` +
             (duration ? `⏱ ${duration}\n` : ``) +
             `🙋 Requested by: ${requester}\n\n` +
-            `<i>Streaming via UpperMoon Tunes assistant…</i>`;
+            `<i>Queued for assistant ${clone.name || "player"}…</i>`;
 
           const markup = {
             inline_keyboard: [
@@ -1185,6 +1241,7 @@ Deno.serve(async (req) => {
               `🎵 <b>/play</b>\n` +
                 `User: ${requester} (<code>${userId}</code>)\n` +
                 `Chat: <code>${chatId}</code>\n` +
+                `Job: <code>${job.id}</code>\n` +
                 `Track: <b>${title}</b>\n` +
                 `<a href="${ytUrl}">YouTube</a>`,
             );

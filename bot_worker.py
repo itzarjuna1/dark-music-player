@@ -26,6 +26,7 @@ import re
 import signal
 import sys
 import tempfile
+import contextlib
 from typing import Dict, Optional
 
 import aiohttp
@@ -97,6 +98,22 @@ async def api_post(session: aiohttp.ClientSession, path: str, body: dict):
         return await r.json()
 
 
+async def patch_playback_job(
+    session: aiohttp.ClientSession,
+    job_id: str,
+    clone_id: str,
+    status: str,
+    error: Optional[str] = None,
+):
+    return await api_post(session, "/playback-jobs", {
+        "action": "complete",
+        "job_id": job_id,
+        "clone_id": clone_id,
+        "status": status,
+        "error": error,
+    })
+
+
 def fmt_duration(sec: int) -> str:
     sec = int(sec or 0)
     return f"{sec // 60}:{sec % 60:02d}"
@@ -136,6 +153,7 @@ class Clone:
         self.queues: Dict[int, list] = {}      # chat_id -> [tracks]
         self.now: Dict[int, dict] = {}          # chat_id -> current track
         self._stopped = False
+        self._job_task: Optional[asyncio.Task] = None
 
     # ----- lifecycle -----
     async def start(self):
@@ -166,6 +184,7 @@ class Clone:
         self.calls = PyTgCalls(self.assistant)
         await self.calls.start()
         self._register_calls_handlers()
+        self._job_task = asyncio.create_task(self._playback_job_loop())
 
         # Notify log group from BOTH bot and assistant
         try:
@@ -190,8 +209,95 @@ class Clone:
 
         log.info("[%s] clone started ✓", self.id)
 
+    async def _ensure_assistant_in_chat(self, chat_id: int):
+        try:
+            await self.assistant.get_chat(chat_id)
+            return
+        except Exception:
+            pass
+
+        try:
+            invite = await self.bot.export_chat_invite_link(chat_id)
+            await self.assistant.join_chat(invite)
+        except Exception as e:
+            raise RuntimeError(
+                "Assistant could not join the group. Add the assistant account to the group and allow it in voice chat first. "
+                f"({e})"
+            )
+
+    async def _playback_job_loop(self):
+        while not self._stopped:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    data = await api_get(session, f"/playback-jobs?clone_id={self.id}&limit=5")
+                    jobs = data.get("jobs", []) or []
+                    for job in jobs:
+                        claim = await api_post(session, "/playback-jobs", {
+                            "action": "claim",
+                            "job_id": job["id"],
+                            "clone_id": self.id,
+                        })
+                        claimed = claim.get("job")
+                        if not claim.get("claimed") or not claimed:
+                            continue
+                        await self._handle_playback_job(session, claimed)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.warning("[%s] playback job loop error: %s", self.id, e)
+
+            await asyncio.sleep(2)
+
+    async def _handle_playback_job(self, session: aiohttp.ClientSession, job: dict):
+        chat_id = int(job["chat_id"])
+        query = job["query"]
+        requester = job.get("requested_by") or "Guest"
+
+        try:
+            await self._ensure_assistant_in_chat(chat_id)
+
+            loop = asyncio.get_event_loop()
+            resolved = await loop.run_in_executor(None, yt_extract, query)
+            if not resolved:
+                raise RuntimeError("Couldn't fetch that track.")
+
+            track = {**resolved, "requested_by": requester}
+            if chat_id in self.now:
+                self.queues.setdefault(chat_id, []).append(track)
+                await patch_playback_job(session, job["id"], self.id, "queued")
+                try:
+                    await self.bot.send_message(
+                        chat_id,
+                        f"➕ Added to queue: <b>{track['title']}</b>",
+                        parse_mode="html",
+                    )
+                except Exception:
+                    pass
+                return
+
+            status = await self.bot.send_message(
+                chat_id,
+                "🎧 Assistant is joining voice chat…",
+                parse_mode="html",
+            )
+            started = await self._start_stream(chat_id, track, status)
+            if not started:
+                raise RuntimeError("Assistant could not start playback in voice chat.")
+            await patch_playback_job(session, job["id"], self.id, "completed")
+        except Exception as e:
+            log.error("[%s] playback job failed %s: %s", self.id, job.get("id"), e)
+            await patch_playback_job(session, job["id"], self.id, "failed", str(e))
+            try:
+                await self.bot.send_message(chat_id, f"❌ {e}")
+            except Exception:
+                pass
+
     async def stop(self):
         self._stopped = True
+        if self._job_task:
+            self._job_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._job_task
         try:
             if self.calls:
                 await self.calls.stop()
@@ -420,17 +526,20 @@ class Clone:
 
     async def _start_stream(self, chat_id: int, track: dict, status: Message):
         try:
+            await self._ensure_assistant_in_chat(chat_id)
             await self.calls.play(
                 chat_id,
                 MediaStream(track["stream_url"], audio_flags=MediaStream.IGNORE),
             )
         except NoActiveGroupCall:
-            return await status.edit(
+            await status.edit(
                 "⚠️ No active voice chat. Start one and try again."
             )
+            return False
         except Exception as e:
-            return await status.edit(f"❌ Stream error: <code>{e}</code>",
-                                     parse_mode="html")
+            await status.edit(f"❌ Stream error: <code>{e}</code>",
+                              parse_mode="html")
+            return False
 
         self.now[chat_id] = track
         try: await status.delete()
@@ -440,6 +549,7 @@ class Clone:
         # Mirror to logger group + website
         asyncio.create_task(self._log_play(chat_id, track))
         asyncio.create_task(self._sync_now(track))
+        return True
 
     async def _send_now_card(self, chat_id: int, t: dict):
         kb = InlineKeyboardMarkup(
