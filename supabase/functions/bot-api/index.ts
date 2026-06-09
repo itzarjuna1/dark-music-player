@@ -341,6 +341,87 @@ Deno.serve(async (req) => {
       return json({ error: 'Method not allowed' }, 405);
     }
 
+    // ---------- PLAYBACK JOBS (owner worker only) ----------
+    // Snowy queues jobs in the DB; the VPS worker claims them and makes the
+    // assistant join/play in the target chat.
+    if (action === 'playback-jobs') {
+      if (!keyRow.is_owner) {
+        return json({ error: 'Owner API key required for playback jobs endpoint' }, 403);
+      }
+
+      if (req.method === 'GET') {
+        const cloneId = url.searchParams.get('clone_id');
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '10'), 50);
+
+        let query = supabase
+          .from('playback_jobs')
+          .select('*')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: true })
+          .limit(limit);
+
+        if (cloneId) {
+          query = query.eq('target_clone_id', cloneId);
+        }
+
+        const { data: jobs, error } = await query;
+        if (error) return json({ error: error.message }, 500);
+        await recordUsage(200);
+        return json({ jobs: jobs || [], count: (jobs || []).length });
+      }
+
+      if (req.method === 'POST') {
+        const body = await req.json().catch(() => ({}));
+
+        if (body?.action === 'claim' && body?.job_id && body?.clone_id) {
+          const now = new Date().toISOString();
+          const { data: job, error } = await supabase
+            .from('playback_jobs')
+            .update({ status: 'processing', claimed_at: now, updated_at: now })
+            .eq('id', body.job_id)
+            .eq('target_clone_id', body.clone_id)
+            .eq('status', 'pending')
+            .select('*')
+            .maybeSingle();
+
+          if (error) return json({ error: error.message }, 500);
+          await recordUsage(200);
+          return json({ ok: true, claimed: !!job, job: job || null });
+        }
+
+        if (body?.action === 'complete' && body?.job_id && body?.clone_id) {
+          const nextStatus = ['queued', 'completed', 'failed'].includes(body?.status)
+            ? body.status
+            : 'completed';
+          const now = new Date().toISOString();
+          const patch: Record<string, unknown> = {
+            status: nextStatus,
+            error: body?.error || null,
+            updated_at: now,
+          };
+          if (nextStatus === 'completed' || nextStatus === 'failed' || nextStatus === 'queued') {
+            patch.completed_at = now;
+          }
+
+          const { data: job, error } = await supabase
+            .from('playback_jobs')
+            .update(patch)
+            .eq('id', body.job_id)
+            .eq('target_clone_id', body.clone_id)
+            .select('*')
+            .maybeSingle();
+
+          if (error) return json({ error: error.message }, 500);
+          await recordUsage(200);
+          return json({ ok: true, job: job || null });
+        }
+
+        return json({ error: 'Invalid playback jobs POST body' }, 400);
+      }
+
+      return json({ error: 'Method not allowed' }, 405);
+    }
+
     // ---------- NOW PLAYING ----------
     if (action === 'nowplaying') {
       if (req.method === 'POST') {
