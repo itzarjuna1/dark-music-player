@@ -209,6 +209,87 @@ class Clone:
 
         log.info("[%s] clone started ✓", self.id)
 
+    async def _ensure_assistant_in_chat(self, chat_id: int):
+        try:
+            await self.assistant.get_chat(chat_id)
+            return
+        except Exception:
+            pass
+
+        try:
+            invite = await self.bot.export_chat_invite_link(chat_id)
+            await self.assistant.join_chat(invite)
+        except Exception as e:
+            raise RuntimeError(
+                "Assistant could not join the group. Add the assistant account to the group and allow it in voice chat first. "
+                f"({e})"
+            )
+
+    async def _playback_job_loop(self):
+        while not self._stopped:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    data = await api_get(session, f"/playback-jobs?clone_id={self.id}&limit=5")
+                    jobs = data.get("jobs", []) or []
+                    for job in jobs:
+                        claim = await api_post(session, "/playback-jobs", {
+                            "action": "claim",
+                            "job_id": job["id"],
+                            "clone_id": self.id,
+                        })
+                        claimed = claim.get("job")
+                        if not claim.get("claimed") or not claimed:
+                            continue
+                        await self._handle_playback_job(session, claimed)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.warning("[%s] playback job loop error: %s", self.id, e)
+
+            await asyncio.sleep(2)
+
+    async def _handle_playback_job(self, session: aiohttp.ClientSession, job: dict):
+        chat_id = int(job["chat_id"])
+        query = job["query"]
+        requester = job.get("requested_by") or "Guest"
+
+        try:
+            await self._ensure_assistant_in_chat(chat_id)
+
+            loop = asyncio.get_event_loop()
+            resolved = await loop.run_in_executor(None, yt_extract, query)
+            if not resolved:
+                raise RuntimeError("Couldn't fetch that track.")
+
+            track = {**resolved, "requested_by": requester}
+            if chat_id in self.now:
+                self.queues.setdefault(chat_id, []).append(track)
+                await patch_playback_job(session, job["id"], self.id, "queued")
+                try:
+                    await self.bot.send_message(
+                        chat_id,
+                        f"➕ Added to queue: <b>{track['title']}</b>",
+                        parse_mode="html",
+                    )
+                except Exception:
+                    pass
+                return
+
+            status = await self.bot.send_message(
+                chat_id,
+                "🎧 Assistant is joining voice chat…",
+                parse_mode="html",
+            )
+            await self._start_stream(chat_id, track, status)
+            await patch_playback_job(session, job["id"], self.id, "completed")
+        except Exception as e:
+            log.error("[%s] playback job failed %s: %s", self.id, job.get("id"), e)
+            await patch_playback_job(session, job["id"], self.id, "failed", str(e))
+            try:
+                await self.bot.send_message(chat_id, f"❌ {e}")
+            except Exception:
+                pass
+
     async def stop(self):
         self._stopped = True
         if self._job_task:
