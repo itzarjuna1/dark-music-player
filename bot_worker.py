@@ -26,6 +26,7 @@ import re
 import signal
 import sys
 import tempfile
+import contextlib
 from typing import Dict, Optional
 
 import aiohttp
@@ -95,6 +96,22 @@ async def api_post(session: aiohttp.ClientSession, path: str, body: dict):
         timeout=aiohttp.ClientTimeout(total=20),
     ) as r:
         return await r.json()
+
+
+async def patch_playback_job(
+    session: aiohttp.ClientSession,
+    job_id: str,
+    clone_id: str,
+    status: str,
+    error: Optional[str] = None,
+):
+    return await api_post(session, "/playback-jobs", {
+        "action": "complete",
+        "job_id": job_id,
+        "clone_id": clone_id,
+        "status": status,
+        "error": error,
+    })
 
 
 def fmt_duration(sec: int) -> str:
