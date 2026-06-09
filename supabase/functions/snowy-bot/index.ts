@@ -114,7 +114,7 @@ async function queuePlaybackJob(
   requester: string,
   requesterUserId?: number,
 ) {
-  const { data: clone, error: cloneError } = await supabase
+  let { data: clone, error: cloneError } = await supabase
     .from("bot_clones")
     .select("id, name, bot_token, is_active")
     .eq("is_active", true)
@@ -124,6 +124,17 @@ async function queuePlaybackJob(
     .maybeSingle();
 
   if (cloneError) throw new Error(cloneError.message);
+  if (!clone?.id) {
+    const fallback = await supabase
+      .from("bot_clones")
+      .select("id, name, bot_token, is_active")
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (fallback.error) throw new Error(fallback.error.message);
+    clone = fallback.data;
+  }
   if (!clone?.id) throw new Error("No active assistant clone is linked to this bot token.");
 
   const { data: job, error: jobError } = await supabase
