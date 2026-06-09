@@ -153,6 +153,7 @@ class Clone:
         self.queues: Dict[int, list] = {}      # chat_id -> [tracks]
         self.now: Dict[int, dict] = {}          # chat_id -> current track
         self._stopped = False
+        self._job_task: Optional[asyncio.Task] = None
 
     # ----- lifecycle -----
     async def start(self):
@@ -183,6 +184,7 @@ class Clone:
         self.calls = PyTgCalls(self.assistant)
         await self.calls.start()
         self._register_calls_handlers()
+        self._job_task = asyncio.create_task(self._playback_job_loop())
 
         # Notify log group from BOTH bot and assistant
         try:
@@ -209,6 +211,10 @@ class Clone:
 
     async def stop(self):
         self._stopped = True
+        if self._job_task:
+            self._job_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._job_task
         try:
             if self.calls:
                 await self.calls.stop()
