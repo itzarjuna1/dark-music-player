@@ -280,7 +280,9 @@ class Clone:
                 "🎧 Assistant is joining voice chat…",
                 parse_mode="html",
             )
-            await self._start_stream(chat_id, track, status)
+            started = await self._start_stream(chat_id, track, status)
+            if not started:
+                raise RuntimeError("Assistant could not start playback in voice chat.")
             await patch_playback_job(session, job["id"], self.id, "completed")
         except Exception as e:
             log.error("[%s] playback job failed %s: %s", self.id, job.get("id"), e)
@@ -530,12 +532,14 @@ class Clone:
                 MediaStream(track["stream_url"], audio_flags=MediaStream.IGNORE),
             )
         except NoActiveGroupCall:
-            return await status.edit(
+            await status.edit(
                 "⚠️ No active voice chat. Start one and try again."
             )
+            return False
         except Exception as e:
-            return await status.edit(f"❌ Stream error: <code>{e}</code>",
-                                     parse_mode="html")
+            await status.edit(f"❌ Stream error: <code>{e}</code>",
+                              parse_mode="html")
+            return False
 
         self.now[chat_id] = track
         try: await status.delete()
@@ -545,6 +549,7 @@ class Clone:
         # Mirror to logger group + website
         asyncio.create_task(self._log_play(chat_id, track))
         asyncio.create_task(self._sync_now(track))
+        return True
 
     async def _send_now_card(self, chat_id: int, t: dict):
         kb = InlineKeyboardMarkup(
