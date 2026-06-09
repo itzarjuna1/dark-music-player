@@ -1205,6 +1205,7 @@ Deno.serve(async (req) => {
           chatId,
           `<b>UpperMoon Tunes API Bot Commands</b>\n\n` +
             `/start - Welcome & main menu\n` +
+            `/play &lt;song&gt; - Send playcard for a track\n` +
             `/mykey - View your current API key\n` +
             `/renew - Renew your API key (once/24h)\n` +
             `/usage - View API usage stats\n` +
