@@ -524,6 +524,7 @@ class Clone:
 
     async def _start_stream(self, chat_id: int, track: dict, status: Message):
         try:
+            await self._ensure_assistant_in_chat(chat_id)
             await self.calls.play(
                 chat_id,
                 MediaStream(track["stream_url"], audio_flags=MediaStream.IGNORE),
