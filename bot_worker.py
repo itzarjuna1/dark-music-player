@@ -169,23 +169,53 @@ class Clone:
                     raise RuntimeError(data.get("description") or f"Telegram API {method} failed")
                 return data.get("result")
 
+    def _serialize_reply_markup(self, reply_markup):
+        if not reply_markup:
+            return None
+        if isinstance(reply_markup, dict):
+            return reply_markup
+        keyboard = getattr(reply_markup, "inline_keyboard", None)
+        if keyboard is None:
+            return None
+        return {
+            "inline_keyboard": [
+                [
+                    {
+                        k: v for k, v in {
+                            "text": getattr(button, "text", None),
+                            "url": getattr(button, "url", None),
+                            "callback_data": getattr(button, "callback_data", None),
+                        }.items() if v is not None
+                    }
+                    for button in row
+                ]
+                for row in keyboard
+            ]
+        }
+
     async def _send_message(self, chat_id: int, text: str, **extra):
-        payload = {"chat_id": chat_id, "text": text, "parse_mode": "html", **extra}
+        parse_mode = extra.pop("parse_mode", "html")
         if self.bot and not self.webhook_only:
-            return await self.bot.send_message(chat_id, text, parse_mode="html", **extra)
+            return await self.bot.send_message(chat_id, text, parse_mode=parse_mode, **extra)
+        payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode, **extra}
+        if "reply_markup" in payload:
+            payload["reply_markup"] = self._serialize_reply_markup(payload["reply_markup"])
         result = await self._bot_api("sendMessage", payload)
         return {"chat_id": chat_id, "message_id": result["message_id"]}
 
     async def _send_photo(self, chat_id: int, photo: str, caption: str, **extra):
+        parse_mode = extra.pop("parse_mode", "html")
         if self.bot and not self.webhook_only:
-            return await self.bot.send_photo(chat_id, photo, caption=caption, parse_mode="html", **extra)
+            return await self.bot.send_photo(chat_id, photo, caption=caption, parse_mode=parse_mode, **extra)
         payload = {
             "chat_id": chat_id,
             "photo": photo,
             "caption": caption,
-            "parse_mode": "html",
+            "parse_mode": parse_mode,
             **extra,
         }
+        if "reply_markup" in payload:
+            payload["reply_markup"] = self._serialize_reply_markup(payload["reply_markup"])
         result = await self._bot_api("sendPhoto", payload)
         return {"chat_id": chat_id, "message_id": result["message_id"]}
 
