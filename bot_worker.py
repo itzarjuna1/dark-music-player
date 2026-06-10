@@ -767,8 +767,18 @@ class Supervisor:
             while not self._stop.is_set():
                 try:
                     data = await api_get(session, "/clones")
-                    active = {c["id"]: c for c in data.get("clones", [])
-                              if c.get("is_active")}
+                    clone_list = [c for c in data.get("clones", []) if c.get("is_active")]
+                    clone_list.sort(key=lambda c: c.get("updated_at") or "", reverse=True)
+                    seen_sessions = set()
+                    active = {}
+                    for cfg in clone_list:
+                        session_key = cfg.get("assistant_string_session") or ""
+                        if session_key and session_key in seen_sessions:
+                            log.warning("Skipping duplicate assistant session for clone %s (%s)", cfg.get("id"), cfg.get("name"))
+                            continue
+                        if session_key:
+                            seen_sessions.add(session_key)
+                        active[cfg["id"]] = cfg
 
                     # start new
                     for cid, cfg in active.items():
