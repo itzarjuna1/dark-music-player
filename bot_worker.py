@@ -147,6 +147,8 @@ class Clone:
         self.id = cfg["id"]
         self.name = cfg.get("name") or "Clone"
         self.log_chat = int(cfg["logger_chat_id"])
+        self.notes = cfg.get("notes") or ""
+        self.webhook_only = "external-webhook" in self.notes.lower()
         self.bot: Optional[Client] = None
         self.assistant: Optional[Client] = None
         self.calls: Optional[PyTgCalls] = None
@@ -154,6 +156,62 @@ class Clone:
         self.now: Dict[int, dict] = {}          # chat_id -> current track
         self._stopped = False
         self._job_task: Optional[asyncio.Task] = None
+
+    async def _bot_api(self, method: str, payload: dict):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"https://api.telegram.org/bot{self.cfg['bot_token']}/{method}",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as response:
+                data = await response.json(content_type=None)
+                if not data.get("ok"):
+                    raise RuntimeError(data.get("description") or f"Telegram API {method} failed")
+                return data.get("result")
+
+    async def _send_message(self, chat_id: int, text: str, **extra):
+        payload = {"chat_id": chat_id, "text": text, "parse_mode": "html", **extra}
+        if self.bot and not self.webhook_only:
+            return await self.bot.send_message(chat_id, text, parse_mode="html", **extra)
+        result = await self._bot_api("sendMessage", payload)
+        return {"chat_id": chat_id, "message_id": result["message_id"]}
+
+    async def _send_photo(self, chat_id: int, photo: str, caption: str, **extra):
+        if self.bot and not self.webhook_only:
+            return await self.bot.send_photo(chat_id, photo, caption=caption, parse_mode="html", **extra)
+        payload = {
+            "chat_id": chat_id,
+            "photo": photo,
+            "caption": caption,
+            "parse_mode": "html",
+            **extra,
+        }
+        result = await self._bot_api("sendPhoto", payload)
+        return {"chat_id": chat_id, "message_id": result["message_id"]}
+
+    async def _edit_message(self, status, text: str):
+        if hasattr(status, "edit"):
+            return await status.edit(text, parse_mode="html")
+        return await self._bot_api("editMessageText", {
+            "chat_id": status["chat_id"],
+            "message_id": status["message_id"],
+            "text": text,
+            "parse_mode": "html",
+            "disable_web_page_preview": True,
+        })
+
+    async def _delete_message(self, status):
+        if hasattr(status, "delete"):
+            return await status.delete()
+        return await self._bot_api("deleteMessage", {
+            "chat_id": status["chat_id"],
+            "message_id": status["message_id"],
+        })
+
+    async def _export_invite_link(self, chat_id: int) -> str:
+        if self.bot and not self.webhook_only:
+            return await self.bot.export_chat_invite_link(chat_id)
+        return await self._bot_api("exportChatInviteLink", {"chat_id": chat_id})
 
     # ----- lifecycle -----
     async def start(self):
