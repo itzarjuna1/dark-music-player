@@ -218,14 +218,15 @@ class Clone:
         bot_name = f"bot_{self.id}"
         ass_name = f"ass_{self.id}"
 
-        self.bot = Client(
-            name=bot_name,
-            api_id=API_ID,
-            api_hash=API_HASH,
-            bot_token=self.cfg["bot_token"],
-            workdir=SESSION_DIR,
-            in_memory=False,
-        )
+        if not self.webhook_only:
+            self.bot = Client(
+                name=bot_name,
+                api_id=API_ID,
+                api_hash=API_HASH,
+                bot_token=self.cfg["bot_token"],
+                workdir=SESSION_DIR,
+                in_memory=False,
+            )
         self.assistant = Client(
             name=ass_name,
             api_id=int(self.cfg.get("api_id") or API_ID),
@@ -235,8 +236,9 @@ class Clone:
             in_memory=True,
         )
 
-        self._register_handlers()
-        await self.bot.start()
+        if self.bot:
+            self._register_handlers()
+            await self.bot.start()
         await self.assistant.start()
 
         self.calls = PyTgCalls(self.assistant)
@@ -246,15 +248,15 @@ class Clone:
 
         # Notify log group from BOTH bot and assistant
         try:
-            me_bot = await self.bot.get_me()
             me_ass = await self.assistant.get_me()
+            me_bot = await self.bot.get_me() if self.bot else None
             txt_bot = (
                 f"🚀 <b>{self.name}</b> is now <b>online</b>!\n\n"
-                f"🤖 Bot: @{me_bot.username}\n"
+                f"🤖 Bot: @{me_bot.username if me_bot else 'Snowy'}\n"
                 f"🎧 Assistant: <a href='tg://user?id={me_ass.id}'>{me_ass.first_name}</a>\n"
                 f"🌐 Hosted via <b>UpperMoon Tunes</b> website"
             )
-            await self.bot.send_photo(
+            await self._send_photo(
                 self.log_chat, START_IMG, caption=txt_bot, parse_mode="html"
             )
             await self.assistant.send_message(
@@ -275,7 +277,7 @@ class Clone:
             pass
 
         try:
-            invite = await self.bot.export_chat_invite_link(chat_id)
+            invite = await self._export_invite_link(chat_id)
             await self.assistant.join_chat(invite)
         except Exception as e:
             raise RuntimeError(
@@ -324,19 +326,17 @@ class Clone:
                 self.queues.setdefault(chat_id, []).append(track)
                 await patch_playback_job(session, job["id"], self.id, "queued")
                 try:
-                    await self.bot.send_message(
+                    await self._send_message(
                         chat_id,
                         f"➕ Added to queue: <b>{track['title']}</b>",
-                        parse_mode="html",
                     )
                 except Exception:
                     pass
                 return
 
-            status = await self.bot.send_message(
+            status = await self._send_message(
                 chat_id,
                 "🎧 Assistant is joining voice chat…",
-                parse_mode="html",
             )
             started = await self._start_stream(chat_id, track, status)
             if not started:
@@ -346,7 +346,7 @@ class Clone:
             log.error("[%s] playback job failed %s: %s", self.id, job.get("id"), e)
             await patch_playback_job(session, job["id"], self.id, "failed", str(e))
             try:
-                await self.bot.send_message(chat_id, f"❌ {e}")
+                await self._send_message(chat_id, f"❌ {e}")
             except Exception:
                 pass
 
