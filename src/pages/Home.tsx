@@ -15,7 +15,7 @@ interface Track {
 const Home = () => {
   const [featuredTracks, setFeaturedTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
-  const { dominantColor, addToQueue } = usePlayer();
+  const { dominantColor } = usePlayer();
 
   useEffect(() => {
     fetchFeaturedTracks();
@@ -41,9 +41,6 @@ const Home = () => {
         }));
 
       setFeaturedTracks(tracks);
-      
-      // Auto-add tracks to queue for seamless playback
-      tracks.forEach(track => addToQueue(track));
     } catch (error) {
       console.error('Error fetching tracks:', error);
     } finally {
@@ -54,21 +51,21 @@ const Home = () => {
   return (
     <div className="flex-1 overflow-y-auto pb-32">
       <div 
-        className="min-h-[22rem] flex items-end px-6 sm:px-8 lg:px-12 py-10 mb-10 border-b border-border"
+        className="min-h-[20rem] sm:min-h-[22rem] flex items-end px-6 sm:px-8 lg:px-12 pt-20 md:pt-10 pb-10 mb-8 sm:mb-10 border-b border-border"
         style={{
           background: `linear-gradient(180deg, hsl(${dominantColor} / 0.18) 0%, hsl(var(--background)) 72%)`
         }}
       >
         <div className="max-w-3xl">
           <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground mb-4">Editorial listening</p>
-          <h1 className="text-5xl sm:text-6xl font-serif font-semibold mb-6 tracking-tight">UpperMoon Tunes</h1>
+          <h1 className="text-4xl sm:text-6xl font-serif font-semibold mb-5 sm:mb-6 tracking-tight leading-[0.95]">UpperMoon Tunes</h1>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl">
             A cleaner music experience with full-track discovery, calmer hierarchy, and a more polished listening surface.
           </p>
         </div>
       </div>
 
-      <div className="px-8">
+      <div className="px-6 sm:px-8">
         <h2 className="text-3xl font-serif font-semibold mb-6">Featured Tracks</h2>
         
         {loading ? (
