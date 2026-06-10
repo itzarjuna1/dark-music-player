@@ -453,7 +453,7 @@ class Clone:
         @bot.on_message(filters.command(["pause"]) & filters.group)
         async def _pause(_, m: Message):
             try:
-                await self.calls.pause(m.chat.id)
+                await self.calls.pause_stream(m.chat.id)
                 await m.reply("⏸ Paused.")
             except Exception as e:
                 await m.reply(f"❌ {e}")
@@ -461,7 +461,7 @@ class Clone:
         @bot.on_message(filters.command(["resume"]) & filters.group)
         async def _resume(_, m: Message):
             try:
-                await self.calls.resume(m.chat.id)
+                await self.calls.resume_stream(m.chat.id)
                 await m.reply("▶️ Resumed.")
             except Exception as e:
                 await m.reply(f"❌ {e}")
@@ -538,9 +538,9 @@ class Clone:
                 if data == "help":
                     await c.message.reply(self._help_text(), parse_mode="html")
                 elif data == "pause" and chat_id:
-                    await self.calls.pause(chat_id); await c.answer("Paused")
+                    await self.calls.pause_stream(chat_id); await c.answer("Paused")
                 elif data == "resume" and chat_id:
-                    await self.calls.resume(chat_id); await c.answer("Resumed")
+                    await self.calls.resume_stream(chat_id); await c.answer("Resumed")
                 elif data == "skip" and chat_id:
                     await c.answer("Skipping...")
                     await self.next_in_queue(chat_id, c.message)
@@ -617,7 +617,7 @@ class Clone:
             await self._ensure_assistant_in_chat(chat_id)
             await self.calls.play(
                 chat_id,
-                MediaStream(track["stream_url"], audio_flags=MediaStream.IGNORE),
+                MediaStream(track["stream_url"], video_flags=MediaStream.Flags.IGNORE),
             )
         except NoActiveGroupCall:
             await self._edit_message(
@@ -710,7 +710,7 @@ class Clone:
                         try:
                             await calls.play(
                                 chat_id,
-                                MediaStream(nxt["stream_url"], audio_flags=MediaStream.IGNORE),
+                                MediaStream(nxt["stream_url"], video_flags=MediaStream.Flags.IGNORE),
                             )
                             await self._send_now_card(chat_id, nxt)
                             asyncio.create_task(self._log_play(chat_id, nxt))
