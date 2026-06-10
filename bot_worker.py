@@ -590,17 +590,17 @@ class Clone:
                 MediaStream(track["stream_url"], audio_flags=MediaStream.IGNORE),
             )
         except NoActiveGroupCall:
-            await status.edit(
+            await self._edit_message(
+                status,
                 "⚠️ No active voice chat. Start one and try again."
             )
             return False
         except Exception as e:
-            await status.edit(f"❌ Stream error: <code>{e}</code>",
-                              parse_mode="html")
+            await self._edit_message(status, f"❌ Stream error: <code>{e}</code>")
             return False
 
         self.now[chat_id] = track
-        try: await status.delete()
+        try: await self._delete_message(status)
         except Exception: pass
         await self._send_now_card(chat_id, track)
 
@@ -628,31 +628,33 @@ class Clone:
             f"🙋 Requested by: {t.get('requested_by','?')}"
         )
         try:
-            await self.bot.send_photo(chat_id, t.get("thumbnail") or START_IMG,
-                                      caption=cap, reply_markup=kb, parse_mode="html")
+            await self._send_photo(chat_id, t.get("thumbnail") or START_IMG,
+                                   caption=cap, reply_markup=kb)
         except Exception:
-            await self.bot.send_message(chat_id, cap, reply_markup=kb,
-                                        parse_mode="html")
+            await self._send_message(chat_id, cap, reply_markup=kb)
 
     async def _log_play(self, chat_id: int, t: dict):
         """Send a per-play notification to the clone's logger chat."""
         try:
-            chat = await self.bot.get_chat(chat_id)
+            chat_title = str(chat_id)
+            if self.bot:
+                chat = await self.bot.get_chat(chat_id)
+                chat_title = getattr(chat, 'title', chat_id)
             cap = (
                 f"🎶 <b>New Play</b>\n\n"
                 f"🎵 <b>{t['title']}</b>\n"
                 f"👤 {t.get('uploader') or 'Unknown'}\n"
                 f"⏱ {fmt_duration(t.get('duration'))}\n"
-                f"💬 Chat: <b>{getattr(chat, 'title', chat_id)}</b> (<code>{chat_id}</code>)\n"
+                f"💬 Chat: <b>{chat_title}</b> (<code>{chat_id}</code>)\n"
                 f"🙋 By: {t.get('requested_by', '?')}"
             )
             try:
-                await self.bot.send_photo(
+                await self._send_photo(
                     self.log_chat, t.get("thumbnail") or START_IMG,
-                    caption=cap, parse_mode="html",
+                    caption=cap,
                 )
             except Exception:
-                await self.bot.send_message(self.log_chat, cap, parse_mode="html")
+                await self._send_message(self.log_chat, cap)
         except Exception as e:
             log.warning("[%s] log_play failed: %s", self.id, e)
 
@@ -690,7 +692,7 @@ class Clone:
                         try: await calls.leave_call(chat_id)
                         except Exception: pass
                         try:
-                            await self.bot.send_message(chat_id, "📭 Queue ended. Left VC.")
+                            await self._send_message(chat_id, "📭 Queue ended. Left VC.")
                         except Exception: pass
             except Exception as e:
                 log.warning("[%s] update handler err: %s", self.id, e)
@@ -716,9 +718,11 @@ class Clone:
             self.now.pop(chat_id, None)
             try: await self.calls.leave_call(chat_id)
             except Exception: pass
-            return await m.reply("📭 Queue ended. Left VC.")
+            if hasattr(m, 'reply'):
+                return await m.reply("📭 Queue ended. Left VC.")
+            return await self._send_message(chat_id, "📭 Queue ended. Left VC.")
         nxt = q.pop(0)
-        status = await m.reply("⏭ Loading next…")
+        status = await (m.reply("⏭ Loading next…") if hasattr(m, 'reply') else self._send_message(chat_id, "⏭ Loading next…"))
         await self._start_stream(chat_id, nxt, status)
 
 
