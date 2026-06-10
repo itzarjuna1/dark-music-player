@@ -27,6 +27,14 @@ const TrackCard = ({ track, onCustomClick }: TrackCardProps) => {
   const isCurrentTrack = currentTrack?.id === track.id;
   const favorite = isFavorite(track.id);
 
+  const handlePlay = () => {
+    if (onCustomClick) {
+      onCustomClick();
+      return;
+    }
+    playTrack(track);
+  };
+
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -53,7 +61,18 @@ const TrackCard = ({ track, onCustomClick }: TrackCardProps) => {
   };
 
   return (
-    <div className="group relative bg-card rounded-sm p-4 hover:bg-secondary smooth-transition cursor-pointer">
+    <div
+      className="group relative bg-card rounded-sm p-4 hover:bg-secondary smooth-transition cursor-pointer"
+      onClick={handlePlay}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handlePlay();
+        }
+      }}
+    >
       <div className="relative mb-4">
         <img
           src={track.cover}
@@ -85,14 +104,17 @@ const TrackCard = ({ track, onCustomClick }: TrackCardProps) => {
           )}
         </button>
         <button
-          onClick={() => onCustomClick ? onCustomClick() : playTrack(track)}
-          className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 smooth-transition shadow-lg hover:scale-110"
+          onClick={(e) => {
+            e.stopPropagation();
+            handlePlay();
+          }}
+          className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 smooth-transition shadow-lg hover:scale-110"
         >
           <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
         </button>
       </div>
       
-      <h3 className="font-semibold truncate mb-1">{track.title}</h3>
+      <h3 className="font-semibold truncate mb-1">{isCurrentTrack && isPlaying ? 'Now Playing • ' : ''}{track.title}</h3>
       <p className="text-sm text-muted-foreground truncate">{track.artist}</p>
     </div>
   );
