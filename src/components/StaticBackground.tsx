@@ -38,11 +38,11 @@ const StaticBackground = () => {
       )}
       
       {/* Cat decoration — right side to avoid sidebar overlap */}
-      <div className="absolute right-4 bottom-24 opacity-30">
+      <div className="absolute right-3 bottom-28 opacity-15 md:opacity-30 md:right-4 md:bottom-24">
         <img
           src={catImage}
           alt="Decoration"
-          className="w-24 h-24 object-cover rounded-full rotate-[-15deg]"
+          className="w-16 h-16 md:w-24 md:h-24 object-cover rounded-full rotate-[-15deg]"
         />
       </div>
     </div>

@@ -91,7 +91,7 @@ const Sidebar = () => {
       {/* Mobile menu button */}
       <button
         onClick={() => setOpen(true)}
-        className="md:hidden fixed top-3 left-3 z-40 p-2 rounded-lg bg-card/80 backdrop-blur border border-border shadow-md smooth-transition active:scale-95"
+        className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-lg bg-card/80 backdrop-blur border border-border shadow-md smooth-transition active:scale-95"
         aria-label="Open menu"
       >
         <Menu className="w-5 h-5" />
@@ -110,7 +110,7 @@ const Sidebar = () => {
         className={cn(
           'bg-sidebar border-r border-sidebar-border flex flex-col z-40',
           'fixed md:static inset-y-0 left-0',
-          'w-64 max-w-[85vw]',
+          'w-64 max-w-[82vw] shadow-xl md:shadow-none',
           'transform smooth-transition will-change-transform',
           'overflow-y-auto',
           open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'

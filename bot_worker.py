@@ -147,6 +147,8 @@ class Clone:
         self.id = cfg["id"]
         self.name = cfg.get("name") or "Clone"
         self.log_chat = int(cfg["logger_chat_id"])
+        self.notes = cfg.get("notes") or ""
+        self.webhook_only = "external-webhook" in self.notes.lower()
         self.bot: Optional[Client] = None
         self.assistant: Optional[Client] = None
         self.calls: Optional[PyTgCalls] = None
@@ -155,19 +157,106 @@ class Clone:
         self._stopped = False
         self._job_task: Optional[asyncio.Task] = None
 
+    async def _bot_api(self, method: str, payload: dict):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"https://api.telegram.org/bot{self.cfg['bot_token']}/{method}",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as response:
+                data = await response.json(content_type=None)
+                if not data.get("ok"):
+                    raise RuntimeError(data.get("description") or f"Telegram API {method} failed")
+                return data.get("result")
+
+    def _serialize_reply_markup(self, reply_markup):
+        if not reply_markup:
+            return None
+        if isinstance(reply_markup, dict):
+            return reply_markup
+        keyboard = getattr(reply_markup, "inline_keyboard", None)
+        if keyboard is None:
+            return None
+        return {
+            "inline_keyboard": [
+                [
+                    {
+                        k: v for k, v in {
+                            "text": getattr(button, "text", None),
+                            "url": getattr(button, "url", None),
+                            "callback_data": getattr(button, "callback_data", None),
+                        }.items() if v is not None
+                    }
+                    for button in row
+                ]
+                for row in keyboard
+            ]
+        }
+
+    async def _send_message(self, chat_id: int, text: str, **extra):
+        parse_mode = extra.pop("parse_mode", "html")
+        if self.bot and not self.webhook_only:
+            return await self.bot.send_message(chat_id, text, parse_mode=parse_mode, **extra)
+        payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode, **extra}
+        if "reply_markup" in payload:
+            payload["reply_markup"] = self._serialize_reply_markup(payload["reply_markup"])
+        result = await self._bot_api("sendMessage", payload)
+        return {"chat_id": chat_id, "message_id": result["message_id"]}
+
+    async def _send_photo(self, chat_id: int, photo: str, caption: str, **extra):
+        parse_mode = extra.pop("parse_mode", "html")
+        if self.bot and not self.webhook_only:
+            return await self.bot.send_photo(chat_id, photo, caption=caption, parse_mode=parse_mode, **extra)
+        payload = {
+            "chat_id": chat_id,
+            "photo": photo,
+            "caption": caption,
+            "parse_mode": parse_mode,
+            **extra,
+        }
+        if "reply_markup" in payload:
+            payload["reply_markup"] = self._serialize_reply_markup(payload["reply_markup"])
+        result = await self._bot_api("sendPhoto", payload)
+        return {"chat_id": chat_id, "message_id": result["message_id"]}
+
+    async def _edit_message(self, status, text: str):
+        if hasattr(status, "edit"):
+            return await status.edit(text, parse_mode="html")
+        return await self._bot_api("editMessageText", {
+            "chat_id": status["chat_id"],
+            "message_id": status["message_id"],
+            "text": text,
+            "parse_mode": "html",
+            "disable_web_page_preview": True,
+        })
+
+    async def _delete_message(self, status):
+        if hasattr(status, "delete"):
+            return await status.delete()
+        return await self._bot_api("deleteMessage", {
+            "chat_id": status["chat_id"],
+            "message_id": status["message_id"],
+        })
+
+    async def _export_invite_link(self, chat_id: int) -> str:
+        if self.bot and not self.webhook_only:
+            return await self.bot.export_chat_invite_link(chat_id)
+        return await self._bot_api("exportChatInviteLink", {"chat_id": chat_id})
+
     # ----- lifecycle -----
     async def start(self):
         bot_name = f"bot_{self.id}"
         ass_name = f"ass_{self.id}"
 
-        self.bot = Client(
-            name=bot_name,
-            api_id=API_ID,
-            api_hash=API_HASH,
-            bot_token=self.cfg["bot_token"],
-            workdir=SESSION_DIR,
-            in_memory=False,
-        )
+        if not self.webhook_only:
+            self.bot = Client(
+                name=bot_name,
+                api_id=API_ID,
+                api_hash=API_HASH,
+                bot_token=self.cfg["bot_token"],
+                workdir=SESSION_DIR,
+                in_memory=False,
+            )
         self.assistant = Client(
             name=ass_name,
             api_id=int(self.cfg.get("api_id") or API_ID),
@@ -177,8 +266,9 @@ class Clone:
             in_memory=True,
         )
 
-        self._register_handlers()
-        await self.bot.start()
+        if self.bot:
+            self._register_handlers()
+            await self.bot.start()
         await self.assistant.start()
 
         self.calls = PyTgCalls(self.assistant)
@@ -188,15 +278,15 @@ class Clone:
 
         # Notify log group from BOTH bot and assistant
         try:
-            me_bot = await self.bot.get_me()
             me_ass = await self.assistant.get_me()
+            me_bot = await self.bot.get_me() if self.bot else None
             txt_bot = (
                 f"🚀 <b>{self.name}</b> is now <b>online</b>!\n\n"
-                f"🤖 Bot: @{me_bot.username}\n"
+                f"🤖 Bot: @{me_bot.username if me_bot else 'Snowy'}\n"
                 f"🎧 Assistant: <a href='tg://user?id={me_ass.id}'>{me_ass.first_name}</a>\n"
                 f"🌐 Hosted via <b>UpperMoon Tunes</b> website"
             )
-            await self.bot.send_photo(
+            await self._send_photo(
                 self.log_chat, START_IMG, caption=txt_bot, parse_mode="html"
             )
             await self.assistant.send_message(
@@ -217,7 +307,7 @@ class Clone:
             pass
 
         try:
-            invite = await self.bot.export_chat_invite_link(chat_id)
+            invite = await self._export_invite_link(chat_id)
             await self.assistant.join_chat(invite)
         except Exception as e:
             raise RuntimeError(
@@ -266,19 +356,17 @@ class Clone:
                 self.queues.setdefault(chat_id, []).append(track)
                 await patch_playback_job(session, job["id"], self.id, "queued")
                 try:
-                    await self.bot.send_message(
+                    await self._send_message(
                         chat_id,
                         f"➕ Added to queue: <b>{track['title']}</b>",
-                        parse_mode="html",
                     )
                 except Exception:
                     pass
                 return
 
-            status = await self.bot.send_message(
+            status = await self._send_message(
                 chat_id,
                 "🎧 Assistant is joining voice chat…",
-                parse_mode="html",
             )
             started = await self._start_stream(chat_id, track, status)
             if not started:
@@ -288,7 +376,7 @@ class Clone:
             log.error("[%s] playback job failed %s: %s", self.id, job.get("id"), e)
             await patch_playback_job(session, job["id"], self.id, "failed", str(e))
             try:
-                await self.bot.send_message(chat_id, f"❌ {e}")
+                await self._send_message(chat_id, f"❌ {e}")
             except Exception:
                 pass
 
@@ -365,7 +453,7 @@ class Clone:
         @bot.on_message(filters.command(["pause"]) & filters.group)
         async def _pause(_, m: Message):
             try:
-                await self.calls.pause(m.chat.id)
+                await self.calls.pause_stream(m.chat.id)
                 await m.reply("⏸ Paused.")
             except Exception as e:
                 await m.reply(f"❌ {e}")
@@ -373,7 +461,7 @@ class Clone:
         @bot.on_message(filters.command(["resume"]) & filters.group)
         async def _resume(_, m: Message):
             try:
-                await self.calls.resume(m.chat.id)
+                await self.calls.resume_stream(m.chat.id)
                 await m.reply("▶️ Resumed.")
             except Exception as e:
                 await m.reply(f"❌ {e}")
@@ -450,9 +538,9 @@ class Clone:
                 if data == "help":
                     await c.message.reply(self._help_text(), parse_mode="html")
                 elif data == "pause" and chat_id:
-                    await self.calls.pause(chat_id); await c.answer("Paused")
+                    await self.calls.pause_stream(chat_id); await c.answer("Paused")
                 elif data == "resume" and chat_id:
-                    await self.calls.resume(chat_id); await c.answer("Resumed")
+                    await self.calls.resume_stream(chat_id); await c.answer("Resumed")
                 elif data == "skip" and chat_id:
                     await c.answer("Skipping...")
                     await self.next_in_queue(chat_id, c.message)
@@ -529,20 +617,20 @@ class Clone:
             await self._ensure_assistant_in_chat(chat_id)
             await self.calls.play(
                 chat_id,
-                MediaStream(track["stream_url"], audio_flags=MediaStream.IGNORE),
+                MediaStream(track["stream_url"], video_flags=MediaStream.Flags.IGNORE),
             )
         except NoActiveGroupCall:
-            await status.edit(
+            await self._edit_message(
+                status,
                 "⚠️ No active voice chat. Start one and try again."
             )
             return False
         except Exception as e:
-            await status.edit(f"❌ Stream error: <code>{e}</code>",
-                              parse_mode="html")
+            await self._edit_message(status, f"❌ Stream error: <code>{e}</code>")
             return False
 
         self.now[chat_id] = track
-        try: await status.delete()
+        try: await self._delete_message(status)
         except Exception: pass
         await self._send_now_card(chat_id, track)
 
@@ -570,31 +658,33 @@ class Clone:
             f"🙋 Requested by: {t.get('requested_by','?')}"
         )
         try:
-            await self.bot.send_photo(chat_id, t.get("thumbnail") or START_IMG,
-                                      caption=cap, reply_markup=kb, parse_mode="html")
+            await self._send_photo(chat_id, t.get("thumbnail") or START_IMG,
+                                   caption=cap, reply_markup=kb)
         except Exception:
-            await self.bot.send_message(chat_id, cap, reply_markup=kb,
-                                        parse_mode="html")
+            await self._send_message(chat_id, cap, reply_markup=kb)
 
     async def _log_play(self, chat_id: int, t: dict):
         """Send a per-play notification to the clone's logger chat."""
         try:
-            chat = await self.bot.get_chat(chat_id)
+            chat_title = str(chat_id)
+            if self.bot:
+                chat = await self.bot.get_chat(chat_id)
+                chat_title = getattr(chat, 'title', chat_id)
             cap = (
                 f"🎶 <b>New Play</b>\n\n"
                 f"🎵 <b>{t['title']}</b>\n"
                 f"👤 {t.get('uploader') or 'Unknown'}\n"
                 f"⏱ {fmt_duration(t.get('duration'))}\n"
-                f"💬 Chat: <b>{getattr(chat, 'title', chat_id)}</b> (<code>{chat_id}</code>)\n"
+                f"💬 Chat: <b>{chat_title}</b> (<code>{chat_id}</code>)\n"
                 f"🙋 By: {t.get('requested_by', '?')}"
             )
             try:
-                await self.bot.send_photo(
+                await self._send_photo(
                     self.log_chat, t.get("thumbnail") or START_IMG,
-                    caption=cap, parse_mode="html",
+                    caption=cap,
                 )
             except Exception:
-                await self.bot.send_message(self.log_chat, cap, parse_mode="html")
+                await self._send_message(self.log_chat, cap)
         except Exception as e:
             log.warning("[%s] log_play failed: %s", self.id, e)
 
@@ -620,7 +710,7 @@ class Clone:
                         try:
                             await calls.play(
                                 chat_id,
-                                MediaStream(nxt["stream_url"], audio_flags=MediaStream.IGNORE),
+                                MediaStream(nxt["stream_url"], video_flags=MediaStream.Flags.IGNORE),
                             )
                             await self._send_now_card(chat_id, nxt)
                             asyncio.create_task(self._log_play(chat_id, nxt))
@@ -632,7 +722,7 @@ class Clone:
                         try: await calls.leave_call(chat_id)
                         except Exception: pass
                         try:
-                            await self.bot.send_message(chat_id, "📭 Queue ended. Left VC.")
+                            await self._send_message(chat_id, "📭 Queue ended. Left VC.")
                         except Exception: pass
             except Exception as e:
                 log.warning("[%s] update handler err: %s", self.id, e)
@@ -658,9 +748,11 @@ class Clone:
             self.now.pop(chat_id, None)
             try: await self.calls.leave_call(chat_id)
             except Exception: pass
-            return await m.reply("📭 Queue ended. Left VC.")
+            if hasattr(m, 'reply'):
+                return await m.reply("📭 Queue ended. Left VC.")
+            return await self._send_message(chat_id, "📭 Queue ended. Left VC.")
         nxt = q.pop(0)
-        status = await m.reply("⏭ Loading next…")
+        status = await (m.reply("⏭ Loading next…") if hasattr(m, 'reply') else self._send_message(chat_id, "⏭ Loading next…"))
         await self._start_stream(chat_id, nxt, status)
 
 
@@ -675,8 +767,18 @@ class Supervisor:
             while not self._stop.is_set():
                 try:
                     data = await api_get(session, "/clones")
-                    active = {c["id"]: c for c in data.get("clones", [])
-                              if c.get("is_active")}
+                    clone_list = [c for c in data.get("clones", []) if c.get("is_active")]
+                    clone_list.sort(key=lambda c: c.get("updated_at") or "", reverse=True)
+                    seen_sessions = set()
+                    active = {}
+                    for cfg in clone_list:
+                        session_key = cfg.get("assistant_string_session") or ""
+                        if session_key and session_key in seen_sessions:
+                            log.warning("Skipping duplicate assistant session for clone %s (%s)", cfg.get("id"), cfg.get("name"))
+                            continue
+                        if session_key:
+                            seen_sessions.add(session_key)
+                        active[cfg["id"]] = cfg
 
                     # start new
                     for cid, cfg in active.items():
