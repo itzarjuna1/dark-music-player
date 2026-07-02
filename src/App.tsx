@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PlayerProvider } from "@/contexts/PlayerContext";
+import { AuthProvider } from "@/hooks/useAuth";
 import Sidebar from "@/components/Layout/Sidebar";
 import Player from "@/components/Layout/Player";
 import Home from "./pages/Home";
@@ -17,6 +18,8 @@ import Visualizer from "./pages/Visualizer";
 import Premium from "./pages/Premium";
 import NotFound from "./pages/NotFound";
 import DeveloperPortal from "./pages/DeveloperPortal";
+import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import StaticBackground from "./components/StaticBackground";
 import { useEffect } from "react";
 
