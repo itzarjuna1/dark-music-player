@@ -100,21 +100,25 @@ const Community = () => {
             <VoiceBar roomId={room.id} userId={user.id} />
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-3">
-                {messages.map((m) => (
-                  <div key={m.id} className="flex gap-2">
-                    <Avatar className="w-8 h-8 shrink-0">
-                      <AvatarImage src={m.profile?.avatar_url ?? undefined} />
-                      <AvatarFallback>{(m.profile?.full_name ?? m.profile?.email ?? '?')[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <p className="text-sm font-medium">{m.profile?.full_name ?? m.profile?.email ?? 'User'}</p>
-                        <span className="text-[10px] text-muted-foreground">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                {messages.map((m) => {
+                  const p = profiles[m.user_id];
+                  const name = p?.full_name ?? p?.email ?? 'User';
+                  return (
+                    <div key={m.id} className="flex gap-2">
+                      <Avatar className="w-8 h-8 shrink-0">
+                        <AvatarImage src={p?.avatar_url ?? undefined} />
+                        <AvatarFallback>{name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-sm font-medium">{name}</p>
+                          <span className="text-[10px] text-muted-foreground">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <p className="text-sm break-words">{m.message}</p>
                       </div>
-                      <p className="text-sm break-words">{m.message}</p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
             <div className="p-3 border-t border-border flex gap-2">
