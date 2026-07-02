@@ -1,240 +1,135 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Users, Send } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import RoomsList, { Room } from '@/components/Community/RoomsList';
+import MembersPanel from '@/components/Community/MembersPanel';
+import VoiceBar from '@/components/Community/VoiceBar';
 import { toast } from 'sonner';
 
-interface ChatRoom {
-  id: string;
-  name: string;
-  genre: string | null;
-  description: string | null;
-}
-
-interface Message {
-  id: string;
-  user_id: string;
-  message: string;
-  timestamp: string;
-}
-
-interface Activity {
-  id: string;
-  user_id: string;
-  track_title: string;
-  track_artist: string;
-  track_cover: string;
-  action: string;
-  timestamp: string;
-}
+type Msg = {
+  id: string; user_id: string; message: string; timestamp: string;
+  profile?: { full_name: string | null; avatar_url: string | null; email: string };
+};
 
 const Community = () => {
-  const [rooms, setRooms] = useState<ChatRoom[]>([]);
-  const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useAuth();
+  const nav = useNavigate();
+  const [room, setRoom] = useState<Room | null>(null);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [text, setText] = useState('');
+  const [myRole, setMyRole] = useState<'owner' | 'admin' | 'member' | null>(null);
 
   useEffect(() => {
-    loadRooms();
-    loadActivities();
-  }, []);
+    if (!room || !user) { setMyRole(null); return; }
+    (async () => {
+      const { data } = await (supabase as any).from('room_members')
+        .select('role').eq('room_id', room.id).eq('user_id', user.id).maybeSingle();
+      setMyRole(data?.role ?? null);
+    })();
+  }, [room, user]);
 
   useEffect(() => {
-    if (selectedRoom) {
-      loadMessages(selectedRoom.id);
-      subscribeToMessages(selectedRoom.id);
-    }
-  }, [selectedRoom]);
-
-  const loadRooms = async () => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('chat_rooms')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      setRooms(data || []);
-      if (data && data.length > 0) {
-        setSelectedRoom(data[0]);
-      }
-    } catch (error) {
-      console.error('Error loading rooms:', error);
-      toast.error('Failed to load chat rooms');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMessages = async (roomId: string) => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('chat_messages')
-        .select('*')
-        .eq('room_id', roomId)
-        .order('timestamp', { ascending: true })
-        .limit(50);
-
-      if (error) throw error;
+    if (!room) { setMessages([]); return; }
+    (async () => {
+      const { data } = await (supabase as any).from('chat_messages')
+        .select('id, user_id, message, timestamp, profile:profiles!chat_messages_user_id_fkey(full_name, avatar_url, email)')
+        .eq('room_id', room.id).order('timestamp').limit(100);
       setMessages(data || []);
-    } catch (error) {
-      console.error('Error loading messages:', error);
-    }
-  };
-
-  const loadActivities = async () => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('user_activity')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      setActivities(data || []);
-    } catch (error) {
-      console.error('Error loading activities:', error);
-    }
-  };
-
-  const subscribeToMessages = (roomId: string) => {
-    const channel = supabase
-      .channel('messages-' + roomId)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `room_id=eq.${roomId}`,
-        },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
-        }
-      )
+    })();
+    const ch = supabase.channel(`msgs-${room.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${room.id}` }, async (payload) => {
+        const row: any = payload.new;
+        const { data: prof } = await (supabase as any).from('profiles').select('full_name, avatar_url, email').eq('id', row.user_id).maybeSingle();
+        setMessages((prev) => [...prev, { ...row, profile: prof }]);
+      })
       .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [room]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+  const send = async () => {
+    if (!text.trim() || !room || !user) return;
+    const { error } = await (supabase as any).from('chat_messages').insert({
+      room_id: room.id, user_id: user.id, message: text.trim(),
+    });
+    if (error) toast.error(error.message); else setText('');
   };
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedRoom) return;
+  if (loading) return <div className="flex-1 flex items-center justify-center text-muted-foreground">Loading…</div>;
 
-    try {
-      const { error } = await (supabase as any).from('chat_messages').insert({
-        room_id: selectedRoom.id,
-        user_id: 'guest',
-        message: newMessage.trim(),
-      });
-
-      if (error) throw error;
-      setNewMessage('');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast.error('Failed to send message');
-    }
-  };
-
-  if (loading) {
+  if (!user) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Users className="w-16 h-16 mx-auto mb-4 text-primary animate-pulse" />
-          <p className="text-muted-foreground">Loading community...</p>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center max-w-sm space-y-4">
+          <Users className="w-12 h-12 mx-auto text-muted-foreground" />
+          <h2 className="font-serif text-2xl">Sign in to join the community</h2>
+          <p className="text-sm text-muted-foreground">Create groups, chat in real time, and hop into voice rooms with other listeners.</p>
+          <Button onClick={() => nav('/auth')}>Sign in</Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-hidden p-6 animate-fade-in">
-      <div className="max-w-7xl mx-auto h-full flex gap-6">
-        <div className="flex-1 flex flex-col glass rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-border">
-            <h2 className="text-2xl font-bold gradient-text">Community Chat</h2>
-            <p className="text-sm text-muted-foreground">Connect with music lovers</p>
-          </div>
+    <div className="flex-1 overflow-hidden flex">
+      {/* Rooms */}
+      <div className="w-64 border-r border-border shrink-0 hidden md:block">
+        <RoomsList userId={user.id} selectedId={room?.id ?? null} onSelect={setRoom} />
+      </div>
 
-          <div className="flex flex-1 overflow-hidden">
-            <div className="w-64 border-r border-border p-4 space-y-2 overflow-y-auto">
-              {rooms.map((room) => (
-                <button
-                  key={room.id}
-                  onClick={() => setSelectedRoom(room)}
-                  className={`w-full text-left p-3 rounded-lg smooth-transition hover-glow ${
-                    selectedRoom?.id === room.id
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-card hover:bg-accent'
-                  }`}
-                >
-                  <p className="font-semibold">{room.name}</p>
-                  <p className="text-xs opacity-70">{room.genre}</p>
-                </button>
-              ))}
+      {/* Chat */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {!room ? (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">Pick a group to start chatting</div>
+        ) : (
+          <>
+            <div className="p-3 border-b border-border">
+              <h2 className="font-serif text-lg">{room.name}</h2>
+              {room.genre && <p className="text-xs text-muted-foreground">{room.genre}</p>}
             </div>
-
-            <div className="flex-1 flex flex-col">
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-3">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className="p-3 rounded-lg max-w-[80%] bg-card"
-                    >
-                      <p className="text-sm">{msg.message}</p>
-                      <p className="text-xs opacity-70 mt-1">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
-                      </p>
+            <VoiceBar roomId={room.id} userId={user.id} />
+            <ScrollArea className="flex-1 p-4">
+              <div className="space-y-3">
+                {messages.map((m) => (
+                  <div key={m.id} className="flex gap-2">
+                    <Avatar className="w-8 h-8 shrink-0">
+                      <AvatarImage src={m.profile?.avatar_url ?? undefined} />
+                      <AvatarFallback>{(m.profile?.full_name ?? m.profile?.email ?? '?')[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <p className="text-sm font-medium">{m.profile?.full_name ?? m.profile?.email ?? 'User'}</p>
+                        <span className="text-[10px] text-muted-foreground">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-sm break-words">{m.message}</p>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-
-              <div className="p-4 border-t border-border flex gap-2">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Type a message..."
-                  className="flex-1 glass"
-                />
-                <Button onClick={sendMessage} className="hover-glow">
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="w-80 glass rounded-xl p-4 overflow-hidden flex flex-col">
-          <h3 className="text-xl font-bold mb-4 gradient-text">Recent Activity</h3>
-          <ScrollArea className="flex-1">
-            <div className="space-y-3">
-              {activities.map((activity) => (
-                <div key={activity.id} className="flex gap-3 p-3 rounded-lg bg-card hover-glow">
-                  <img
-                    src={activity.track_cover}
-                    alt={activity.track_title}
-                    className="w-12 h-12 rounded"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{activity.track_title}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {activity.track_artist}
-                    </p>
-                    <p className="text-xs text-primary capitalize">{activity.action}</p>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </ScrollArea>
+            <div className="p-3 border-t border-border flex gap-2">
+              <Input value={text} onChange={(e) => setText(e.target.value)}
+                     onKeyDown={(e) => e.key === 'Enter' && send()}
+                     placeholder={myRole ? 'Message…' : 'Join to send messages'}
+                     disabled={!myRole} />
+              <Button onClick={send} disabled={!myRole || !text.trim()}><Send className="w-4 h-4" /></Button>
             </div>
-          </ScrollArea>
-        </div>
+          </>
+        )}
+      </div>
+
+      {/* Members */}
+      <div className="w-72 border-l border-border shrink-0 hidden lg:block">
+        {room ? (
+          <MembersPanel roomId={room.id} currentUserId={user.id} myRole={myRole} />
+        ) : (
+          <div className="p-4 text-sm text-muted-foreground">Members appear here.</div>
+        )}
       </div>
     </div>
   );
