@@ -6,33 +6,31 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Shield, ShieldOff, UserMinus, Ban } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchProfiles, Profile } from '@/lib/profiles';
 
 type Role = 'owner' | 'admin' | 'member';
-type Member = {
-  id: string; user_id: string; role: Role;
-  profile?: { full_name: string | null; avatar_url: string | null; email: string };
-};
-type BanRow = { id: string; user_id: string; reason: string | null; profile?: { full_name: string | null; email: string } };
+type Member = { id: string; user_id: string; role: Role };
+type BanRow = { id: string; user_id: string; reason: string | null };
 
 export default function MembersPanel({ roomId, currentUserId, myRole }: { roomId: string; currentUserId: string; myRole: Role | null }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [bans, setBans] = useState<BanRow[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const isAdmin = myRole === 'owner' || myRole === 'admin';
 
   const load = async () => {
     const { data: m } = await (supabase as any)
-      .from('room_members')
-      .select('id, user_id, role, profile:profiles!room_members_user_id_fkey(full_name, avatar_url, email)')
-      .eq('room_id', roomId)
-      .order('role');
+      .from('room_members').select('id, user_id, role').eq('room_id', roomId).order('role');
     setMembers(m || []);
+    let banRows: BanRow[] = [];
     if (isAdmin) {
       const { data: b } = await (supabase as any)
-        .from('room_bans')
-        .select('id, user_id, reason, profile:profiles!room_bans_user_id_fkey(full_name, email)')
-        .eq('room_id', roomId);
-      setBans(b || []);
+        .from('room_bans').select('id, user_id, reason').eq('room_id', roomId);
+      banRows = b || [];
+      setBans(banRows);
     }
+    const ids = [...(m || []).map((x: Member) => x.user_id), ...banRows.map((x) => x.user_id)];
+    setProfiles(await fetchProfiles(ids));
   };
 
   useEffect(() => {
@@ -65,6 +63,8 @@ export default function MembersPanel({ roomId, currentUserId, myRole }: { roomId
     if (error) toast.error(error.message); else load();
   };
 
+  const nameOf = (uid: string) => profiles[uid]?.full_name ?? profiles[uid]?.email ?? uid.slice(0, 8);
+
   return (
     <div className="p-4 space-y-4 overflow-y-auto h-full">
       <div>
@@ -73,11 +73,11 @@ export default function MembersPanel({ roomId, currentUserId, myRole }: { roomId
           {members.map((m) => (
             <div key={m.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-accent/40">
               <Avatar className="w-8 h-8">
-                <AvatarImage src={m.profile?.avatar_url ?? undefined} />
-                <AvatarFallback>{(m.profile?.full_name ?? m.profile?.email ?? '?')[0]}</AvatarFallback>
+                <AvatarImage src={profiles[m.user_id]?.avatar_url ?? undefined} />
+                <AvatarFallback>{nameOf(m.user_id)[0]}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm truncate">{m.profile?.full_name ?? m.profile?.email ?? m.user_id.slice(0, 8)}</p>
+                <p className="text-sm truncate">{nameOf(m.user_id)}</p>
                 {m.role !== 'member' && (
                   <Badge variant="secondary" className="text-[10px] mt-0.5 capitalize">{m.role}</Badge>
                 )}
@@ -110,7 +110,7 @@ export default function MembersPanel({ roomId, currentUserId, myRole }: { roomId
             {bans.map((b) => (
               <div key={b.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-accent/40">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{b.profile?.full_name ?? b.profile?.email ?? b.user_id.slice(0, 8)}</p>
+                  <p className="text-sm truncate">{nameOf(b.user_id)}</p>
                   {b.reason && <p className="text-xs text-muted-foreground truncate">{b.reason}</p>}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => unban(b)}>Unban</Button>

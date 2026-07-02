@@ -11,17 +11,16 @@ import RoomsList, { Room } from '@/components/Community/RoomsList';
 import MembersPanel from '@/components/Community/MembersPanel';
 import VoiceBar from '@/components/Community/VoiceBar';
 import { toast } from 'sonner';
+import { fetchProfiles, Profile } from '@/lib/profiles';
 
-type Msg = {
-  id: string; user_id: string; message: string; timestamp: string;
-  profile?: { full_name: string | null; avatar_url: string | null; email: string };
-};
+type Msg = { id: string; user_id: string; message: string; timestamp: string };
 
 const Community = () => {
   const { user, loading } = useAuth();
   const nav = useNavigate();
   const [room, setRoom] = useState<Room | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [text, setText] = useState('');
   const [myRole, setMyRole] = useState<'owner' | 'admin' | 'member' | null>(null);
 
@@ -38,18 +37,24 @@ const Community = () => {
     if (!room) { setMessages([]); return; }
     (async () => {
       const { data } = await (supabase as any).from('chat_messages')
-        .select('id, user_id, message, timestamp, profile:profiles!chat_messages_user_id_fkey(full_name, avatar_url, email)')
+        .select('id, user_id, message, timestamp')
         .eq('room_id', room.id).order('timestamp').limit(100);
-      setMessages(data || []);
+      const rows = data || [];
+      setMessages(rows);
+      setProfiles(await fetchProfiles(rows.map((r: Msg) => r.user_id)));
     })();
     const ch = supabase.channel(`msgs-${room.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${room.id}` }, async (payload) => {
         const row: any = payload.new;
-        const { data: prof } = await (supabase as any).from('profiles').select('full_name, avatar_url, email').eq('id', row.user_id).maybeSingle();
-        setMessages((prev) => [...prev, { ...row, profile: prof }]);
+        setMessages((prev) => [...prev, row]);
+        if (!profiles[row.user_id]) {
+          const p = await fetchProfiles([row.user_id]);
+          setProfiles((prev) => ({ ...prev, ...p }));
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room]);
 
   const send = async () => {

@@ -5,19 +5,21 @@ import { useVoiceRoom } from '@/hooks/useVoiceRoom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { fetchProfiles, Profile } from '@/lib/profiles';
 
-type Participant = { user_id: string; is_muted: boolean; profile?: { full_name: string | null; avatar_url: string | null } };
+type Participant = { user_id: string; is_muted: boolean };
 
 export default function VoiceBar({ roomId, userId }: { roomId: string; userId: string }) {
   const { connected, muted, join, leave, toggleMute } = useVoiceRoom(roomId, userId);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
 
   const load = async () => {
     const { data } = await (supabase as any)
-      .from('voice_participants')
-      .select('user_id, is_muted, profile:profiles!voice_participants_user_id_fkey(full_name, avatar_url)')
-      .eq('room_id', roomId);
-    setParticipants(data || []);
+      .from('voice_participants').select('user_id, is_muted').eq('room_id', roomId);
+    const list = data || [];
+    setParticipants(list);
+    setProfiles(await fetchProfiles(list.map((p: Participant) => p.user_id)));
   };
 
   useEffect(() => {
@@ -40,15 +42,18 @@ export default function VoiceBar({ roomId, userId }: { roomId: string; userId: s
           <span className="text-xs text-muted-foreground">No one is in voice chat</span>
         ) : (
           <div className="flex -space-x-2">
-            {participants.slice(0, 8).map((p) => (
-              <div key={p.user_id} className="relative">
-                <Avatar className="w-8 h-8 border-2 border-background">
-                  <AvatarImage src={p.profile?.avatar_url ?? undefined} />
-                  <AvatarFallback>{(p.profile?.full_name ?? '?')[0]}</AvatarFallback>
-                </Avatar>
-                {p.is_muted && <MicOff className="w-3 h-3 absolute -bottom-1 -right-1 bg-background rounded-full p-0.5" />}
-              </div>
-            ))}
+            {participants.slice(0, 8).map((p) => {
+              const name = profiles[p.user_id]?.full_name ?? profiles[p.user_id]?.email ?? '?';
+              return (
+                <div key={p.user_id} className="relative">
+                  <Avatar className="w-8 h-8 border-2 border-background">
+                    <AvatarImage src={profiles[p.user_id]?.avatar_url ?? undefined} />
+                    <AvatarFallback>{name[0]}</AvatarFallback>
+                  </Avatar>
+                  {p.is_muted && <MicOff className="w-3 h-3 absolute -bottom-1 -right-1 bg-background rounded-full p-0.5" />}
+                </div>
+              );
+            })}
             {participants.length > 8 && <span className="text-xs text-muted-foreground ml-3 self-center">+{participants.length - 8}</span>}
           </div>
         )}
