@@ -174,25 +174,37 @@ export type Database = {
       }
       chat_rooms: {
         Row: {
+          avatar_url: string | null
           created_at: string
           description: string | null
           genre: string | null
           id: string
+          is_private: boolean
           name: string
+          owner_id: string | null
+          updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           description?: string | null
           genre?: string | null
           id?: string
+          is_private?: boolean
           name: string
+          owner_id?: string | null
+          updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           description?: string | null
           genre?: string | null
           id?: string
+          is_private?: boolean
           name?: string
+          owner_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -576,6 +588,76 @@ export type Database = {
         }
         Relationships: []
       }
+      room_bans: {
+        Row: {
+          banned_by: string | null
+          created_at: string
+          id: string
+          reason: string | null
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          banned_by?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          banned_by?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_bans_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_members: {
+        Row: {
+          id: string
+          joined_at: string
+          muted: boolean
+          role: Database["public"]["Enums"]["room_role"]
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          muted?: boolean
+          role?: Database["public"]["Enums"]["room_role"]
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          muted?: boolean
+          role?: Database["public"]["Enums"]["room_role"]
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_members_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       telegram_api_users: {
         Row: {
           api_key: string | null
@@ -636,15 +718,98 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_participants: {
+        Row: {
+          id: string
+          is_muted: boolean
+          is_speaking: boolean
+          joined_at: string
+          last_seen: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_muted?: boolean
+          is_speaking?: boolean
+          joined_at?: string
+          last_seen?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_muted?: boolean
+          is_speaking?: boolean
+          joined_at?: string
+          last_seen?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_participants_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_signals: {
+        Row: {
+          created_at: string
+          from_user: string
+          id: string
+          kind: string
+          payload: Json
+          room_id: string
+          to_user: string
+        }
+        Insert: {
+          created_at?: string
+          from_user: string
+          id?: string
+          kind: string
+          payload: Json
+          room_id: string
+          to_user: string
+        }
+        Update: {
+          created_at?: string
+          from_user?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          room_id?: string
+          to_user?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_signals_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_banned: { Args: { _room: string; _uid: string }; Returns: boolean }
+      is_room_admin: { Args: { _room: string; _uid: string }; Returns: boolean }
+      is_room_member: {
+        Args: { _room: string; _uid: string }
+        Returns: boolean
+      }
+      is_room_owner: { Args: { _room: string; _uid: string }; Returns: boolean }
+      room_is_public: { Args: { _room: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      room_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -771,6 +936,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      room_role: ["owner", "admin", "member"],
+    },
   },
 } as const

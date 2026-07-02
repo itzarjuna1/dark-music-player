@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PlayerProvider } from "@/contexts/PlayerContext";
+import { AuthProvider } from "@/hooks/useAuth";
 import Sidebar from "@/components/Layout/Sidebar";
 import Player from "@/components/Layout/Player";
 import Home from "./pages/Home";
@@ -17,6 +18,8 @@ import Visualizer from "./pages/Visualizer";
 import Premium from "./pages/Premium";
 import NotFound from "./pages/NotFound";
 import DeveloperPortal from "./pages/DeveloperPortal";
+import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import StaticBackground from "./components/StaticBackground";
 import { useEffect } from "react";
 
@@ -39,32 +42,36 @@ const App = () => {
   return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <PlayerProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <div className="flex h-[100dvh] overflow-hidden relative">
-            <StaticBackground />
-            <Sidebar />
-            <main className="flex-1 flex flex-col overflow-hidden relative z-10 pt-12 md:pt-0">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/discover" element={<Discover />} />
-                <Route path="/library" element={<Library />} />
-                <Route path="/history" element={<History />} />
-                <Route path="/community" element={<Community />} />
-                <Route path="/visualizer" element={<Visualizer />} />
-                <Route path="/premium" element={<Premium />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/developer" element={<DeveloperPortal />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <Player />
-          </div>
-        </BrowserRouter>
-      </PlayerProvider>
+      <AuthProvider>
+        <PlayerProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <div className="flex h-[100dvh] overflow-hidden relative">
+              <StaticBackground />
+              <Sidebar />
+              <main className="flex-1 flex flex-col overflow-hidden relative z-10 pt-12 md:pt-0">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/discover" element={<Discover />} />
+                  <Route path="/library" element={<Library />} />
+                  <Route path="/history" element={<History />} />
+                  <Route path="/community" element={<Community />} />
+                  <Route path="/visualizer" element={<Visualizer />} />
+                  <Route path="/premium" element={<Premium />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/developer" element={<DeveloperPortal />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </main>
+              <Player />
+            </div>
+          </BrowserRouter>
+        </PlayerProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
   );
