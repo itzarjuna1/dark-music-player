@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { fetchProfiles, Profile } from '@/lib/profiles';
+import { MicPermissionDialog } from './MicPermissionDialog';
 
 type Participant = { user_id: string; is_muted: boolean };
 
@@ -13,6 +14,7 @@ export default function VoiceBar({ roomId, userId }: { roomId: string; userId: s
   const { connected, muted, join, leave, toggleMute } = useVoiceRoom(roomId, userId);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [micError, setMicError] = useState<string | null>(null);
 
   const load = async () => {
     const { data } = await (supabase as any)
@@ -32,8 +34,18 @@ export default function VoiceBar({ roomId, userId }: { roomId: string; userId: s
   }, [roomId]);
 
   const handleJoin = async () => {
-    try { await join(); } catch (e: any) { toast.error(e.message); }
+    try {
+      await join();
+    } catch (e: any) {
+      const code = e?.code || e?.name || 'MicError';
+      if (['NotAllowedError', 'PermissionDeniedError', 'NotFoundError', 'NotReadableError', 'MicError'].includes(code)) {
+        setMicError(code);
+      } else {
+        toast.error(e?.message ?? 'Could not join voice');
+      }
+    }
   };
+
 
   return (
     <div className="flex items-center gap-3 p-3 border-b border-border bg-card/50">
