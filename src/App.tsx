@@ -65,7 +65,9 @@ const App = () => {
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/developer" element={<DeveloperPortal />} />
                   <Route path="/auth" element={<Auth />} />
+                  <Route path="/botfather" element={<BotFather />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
