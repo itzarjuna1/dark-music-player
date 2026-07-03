@@ -84,6 +84,13 @@ export default function VoiceBar({ roomId, userId }: { roomId: string; userId: s
           <Phone className="w-4 h-4" /> Join voice
         </Button>
       )}
+      <MicPermissionDialog
+        open={!!micError}
+        reason={micError}
+        onClose={() => setMicError(null)}
+        onRetry={() => { setMicError(null); void handleJoin(); }}
+      />
     </div>
   );
 }
+
