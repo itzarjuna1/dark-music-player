@@ -12,8 +12,10 @@ import MembersPanel from '@/components/Community/MembersPanel';
 import VoiceBar from '@/components/Community/VoiceBar';
 import { toast } from 'sonner';
 import { fetchProfiles, Profile } from '@/lib/profiles';
+import { Bot, fetchInstalledBots } from '@/lib/bots';
 
-type Msg = { id: string; user_id: string; message: string; timestamp: string };
+type Msg = { id: string; user_id: string; message: string; timestamp: string; sender_kind?: 'user' | 'bot'; bot_id?: string | null; buttons?: { label: string; payload: string }[] | null };
+
 
 const Community = () => {
   const { user, loading } = useAuth();
@@ -57,13 +59,19 @@ const Community = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room]);
 
-  const send = async () => {
-    if (!text.trim() || !room || !user) return;
+  const send = async (override?: string) => {
+    const body = (override ?? text).trim();
+    if (!body || !room || !user) return;
     const { error } = await (supabase as any).from('chat_messages').insert({
-      room_id: room.id, user_id: user.id, message: text.trim(),
+      room_id: room.id, user_id: user.id, message: body,
     });
-    if (error) toast.error(error.message); else setText('');
+    if (error) return toast.error(error.message);
+    if (!override) setText('');
+    if (body.startsWith('/')) {
+      supabase.functions.invoke('bot-dispatch', { body: { room_id: room.id, text: body } }).catch(() => {});
+    }
   };
+
 
   if (loading) return <div className="flex-1 flex items-center justify-center text-muted-foreground">Loading…</div>;
 
@@ -126,7 +134,7 @@ const Community = () => {
                      onKeyDown={(e) => e.key === 'Enter' && send()}
                      placeholder={myRole ? 'Message…' : 'Join to send messages'}
                      disabled={!myRole} />
-              <Button onClick={send} disabled={!myRole || !text.trim()}><Send className="w-4 h-4" /></Button>
+              <Button onClick={() => send()} disabled={!myRole || !text.trim()}><Send className="w-4 h-4" /></Button>
             </div>
           </>
         )}

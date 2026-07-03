@@ -1,76 +1,119 @@
-# Community Overhaul Plan
+## Goal
+Three deliverables:
+1. Friendly microphone-permission handling in Community voice chat.
+2. Google sign-in on `/auth` (managed by Lovable Cloud, alongside email/password).
+3. A Telegram-inspired **BotFather** system with two bot types:
+   - **In-app bots** that live in Community rooms (commands, buttons, AI replies, music).
+   - **Telegram bot clones** where a user pastes their own Telegram bot token and it's registered with our existing worker (extends `bot_clones`).
 
-Build a Telegram-style community section with proper auth, group management, admin roles, bans, and live in-browser voice chat.
+---
 
-## 1. Authentication (prerequisite)
-- Add Email/Password + Google sign-in using Lovable Cloud managed OAuth.
-- New `/auth` page (sign in / sign up tabs) + `/reset-password` page.
-- `useAuth` hook with `onAuthStateChange` listener.
-- Profiles auto-created via existing `handle_new_user` trigger (already present).
-- Community routes require sign-in; show a "Sign in to join the community" gate for guests.
-- Header chip in Sidebar showing avatar + sign out.
+## 1. Microphone permission fix
 
-## 2. Database (migrations)
-New tables (all with GRANTs + RLS + policies):
+Files: `src/hooks/useVoiceRoom.ts`, `src/components/Community/VoiceBar.tsx`, new `src/components/Community/MicPermissionDialog.tsx`.
 
-- `app_role` enum: `owner`, `admin`, `member`
-- `chat_rooms` (extend existing): add `owner_id`, `is_private`, `avatar_url`, `created_at`
-- `room_members` (user_id, room_id, role, joined_at, muted) — unique(user_id, room_id)
-- `room_bans` (room_id, user_id, banned_by, reason, created_at)
-- `voice_participants` (room_id, user_id, joined_at, is_speaking, is_muted) — ephemeral presence
-- `voice_signals` (from_user, to_user, room_id, payload jsonb, created_at) — WebRTC offer/answer/ICE relay, auto-cleaned
+- Wrap `navigator.mediaDevices.getUserMedia({ audio: true })` in a try/catch inside `useVoiceRoom`.
+- On `NotAllowedError` / `PermissionDeniedError`: return a typed error, do NOT auto-request.
+- `VoiceBar` catches it and opens `MicPermissionDialog` with:
+  - Icon + heading "Microphone access needed"
+  - Browser-specific hint ("Click the 🔒 icon in the address bar → Site settings → Microphone → Allow")
+  - "Try again" button that re-invokes join
+  - "Cancel" button
+- Also handle `NotFoundError` (no mic) and `NotReadableError` (mic in use) with distinct messages.
 
-Security-definer helpers:
-- `is_room_member(_uid, _room)`, `is_room_admin(_uid, _room)`, `is_banned(_uid, _room)`
+## 2. Google sign-in
 
-Realtime: enable on `chat_messages`, `room_members`, `voice_participants`, `voice_signals`.
+Files: `src/pages/Auth.tsx` (edit).
 
-## 3. Group management UI (`/community`)
-Telegram-like 3-column layout:
+- Use `configure_social_auth` tool to enable `google` (Lovable Cloud managed — no keys needed).
+- Add "Continue with Google" button on the Auth page using `lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin })` from `@/integrations/lovable`.
+- Keep existing email/password flow.
+- `profiles` trigger `handle_new_user` already reads `raw_user_meta_data->>'avatar_url'` and `full_name`, so Google avatars/names populate automatically.
 
-```
-┌─────────┬───────────────────┬──────────┐
-│ Rooms   │ Active room       │ Members  │
-│ + New   │ - voice bar (top) │ + admins │
-│ list    │ - messages        │ + actions│
-│         │ - composer        │          │
-└─────────┴───────────────────┴──────────┘
-```
+## 3. BotFather system
 
-- **Rooms panel**: search, "+ New Group" dialog (name, description, genre, private toggle), shows joined rooms + public discovery. Owner can delete from context menu.
-- **Members panel**: avatar list with role badges; owner/admin can promote/demote/kick/ban via dropdown. Banned users panel toggle.
-- **Chat area**: same realtime messages as today but scoped to membership; show member name (joined to profiles).
+### 3a. Database (single migration)
 
-## 4. Live voice chat (WebRTC mesh, in-browser)
-Separate from Telegram VC. Pure browser-to-browser audio via WebRTC, signaling through Supabase realtime.
+New tables:
 
-- "Join Voice" button at top of active room.
-- On join: insert `voice_participants` row, request mic, create `RTCPeerConnection` per existing participant, exchange offers/answers/ICE through `voice_signals` table (insert + realtime subscribe + delete after consume).
-- Floating voice bar shows speaking avatars (Web Audio level meter → `is_speaking`), mute, leave.
-- Cleanup on unmount / tab close (`beforeunload` + presence heartbeat; rows older than 60s pruned client-side on read).
-- Mesh is fine for small rooms (<=8). Show notice if room is larger.
+**`bots`** — user-created in-app bots
+- `id`, `owner_id → auth.users`, `username` (unique, `@name` style), `display_name`, `description`, `avatar_url`, `bot_type` enum(`in_app`, `telegram_clone`), `is_active`, `ai_enabled` bool, `ai_persona` text, `created_at`, `updated_at`.
 
-## 5. Files (new / changed)
-New:
-- `supabase/migrations/<ts>_community.sql`
-- `src/pages/Auth.tsx`, `src/pages/ResetPassword.tsx`
-- `src/hooks/useAuth.tsx`
-- `src/hooks/useVoiceRoom.ts` (WebRTC mesh)
-- `src/components/Community/RoomsList.tsx`
-- `src/components/Community/MembersPanel.tsx`
-- `src/components/Community/VoiceBar.tsx`
-- `src/components/Community/NewRoomDialog.tsx`
-- `src/components/AuthGate.tsx`
+**`bot_commands`** — command/response pairs
+- `id`, `bot_id`, `command` (e.g. `/help`), `response_text`, `response_kind` enum(`static`, `music_play`, `music_queue`, `ai`), `buttons` jsonb (array of `{label, payload}` for inline keyboards), `sort_order`.
 
-Changed:
-- `src/App.tsx` — add `/auth`, `/reset-password` routes, wrap with auth provider.
-- `src/pages/Community.tsx` — rewrite using new components.
-- `src/components/Layout/Sidebar.tsx` — auth chip.
+**`bot_room_installs`** — which bots are added to which Community rooms
+- `id`, `bot_id`, `room_id → chat_rooms`, `installed_by`, `installed_at`.
 
-## 6. Out of scope (for this pass)
-- Screen share / video in voice rooms.
-- Push notifications.
-- File uploads in chat (text only for now).
-- SFU server (mesh only).
+**`bot_telegram_configs`** — links a `bots` row of type `telegram_clone` to a `bot_clones` worker row
+- `id`, `bot_id` (unique), `clone_id → bot_clones.id`, `phone_string_session` (nullable, for VC assistant).
 
-After approval I'll ship it in one batch (migration + auth + community + voice).
+Extend **`chat_messages`**:
+- `sender_kind` enum(`user`, `bot`) default `user`.
+- `bot_id` nullable → `bots.id`.
+- `buttons` jsonb nullable.
+- `reply_to_message_id` nullable self-FK.
+
+GRANTs on every new table; RLS:
+- Anyone authenticated can read active bots.
+- Only `owner_id` can update/delete their bot & commands.
+- Installs readable to room members (uses existing `is_room_member`), insertable by room admins.
+- `bot_telegram_configs` owner-scoped.
+
+### 3b. BotFather UI (in-app command interface)
+
+New page: `src/pages/BotFather.tsx` at `/botfather`.
+
+Mimics Telegram's BotFather with a chat-like command list on the left, a working panel on the right. Supported commands:
+- `/newbot` → wizard: choose type (In-app / Telegram clone) → name → username → (if Telegram, request token via existing add_secret-like flow that stores in `bot_clones` + optional string session).
+- `/mybots` → list all bots the user owns; select one to open its settings.
+- `/setname`, `/setdescription`, `/setuserpic` (avatar upload to existing `avatars` bucket).
+- `/setcommands` → visual editor: add command, response type dropdown (Static / Music /play / Music /queue / AI reply), inline-keyboard button rows editor.
+- `/setai` → toggle AI-powered replies + persona textarea.
+- `/deletebot` with confirm dialog.
+- `/addtogroup` → pick a Community room the user belongs to, install the bot.
+
+Uses shadcn `Command`, `Dialog`, `Tabs`, `Form`.
+
+### 3c. Bot runtime in Community
+
+Files: `src/pages/Community.tsx` (edit), new `src/lib/bots.ts`, new `supabase/functions/bot-dispatch/index.ts`.
+
+- When a message is sent starting with `/`, client publishes it to `chat_messages` as usual (unchanged).
+- A new edge function `bot-dispatch` is invoked (Realtime trigger via `supabase.functions.invoke` from the sender) with `{ room_id, message_id, text }`.
+- Function:
+  1. Loads installed bots for the room.
+  2. Matches command prefix per bot; ignores unmatched.
+  3. Resolves response:
+     - `static` → inserts a `chat_messages` row with `sender_kind='bot'`, `bot_id`, `buttons` from command row.
+     - `music_play` / `music_queue` → inserts a bot message like "Now playing …" and publishes a Postgres NOTIFY-style row into `now_playing` (already exists) — client picks it up.
+     - `ai` → calls Lovable AI (`google/gemini-3-flash-preview`) with the bot's persona as system prompt and the message text; inserts reply.
+- Messages with `sender_kind='bot'` render with the bot's avatar + name + a small "BOT" badge. Buttons render as clickable pills; clicking sends a new user message `/<command> <payload>` back to dispatch.
+
+### 3d. Telegram clone integration
+
+- Reuses existing `bot_clones` table + worker.
+- Creating a `telegram_clone` bot in BotFather:
+  - Asks for bot token (via `add_secret`-style form).
+  - Inserts a row into `bot_clones` (assistant string session optional, stored per existing pattern) and a row into `bots` + `bot_telegram_configs` linking them.
+  - Owner can toggle active, rotate token, delete.
+- No new worker code required — worker already reads `bot_clones` on heartbeat.
+
+### 3e. Sidebar entry
+
+- Add "BotFather" link in `src/components/Layout/Sidebar.tsx` (Bot icon from lucide) that navigates to `/botfather`. Requires auth (redirects to `/auth`).
+
+---
+
+## Out of scope
+- No inline keyboards on Telegram-clone messages (handled by user's own bot code on VPS).
+- No cross-user bot marketplace / discovery; users install bots they own or that are public via direct link (`/botfather?add=@botname`) — later.
+- No slash-command autocomplete popup — plain text parsing for v1.
+
+## Rollout order
+1. Migration for bot tables + chat_messages extension.
+2. Google OAuth + Auth page button.
+3. Mic permission dialog.
+4. BotFather page + bot CRUD.
+5. Community bot rendering + `bot-dispatch` edge function.
+6. Telegram-clone token registration flow.

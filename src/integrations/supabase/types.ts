@@ -140,29 +140,216 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_commands: {
+        Row: {
+          bot_id: string
+          buttons: Json | null
+          command: string
+          created_at: string
+          id: string
+          response_kind: Database["public"]["Enums"]["response_kind"]
+          response_text: string | null
+          sort_order: number
+        }
+        Insert: {
+          bot_id: string
+          buttons?: Json | null
+          command: string
+          created_at?: string
+          id?: string
+          response_kind?: Database["public"]["Enums"]["response_kind"]
+          response_text?: string | null
+          sort_order?: number
+        }
+        Update: {
+          bot_id?: string
+          buttons?: Json | null
+          command?: string
+          created_at?: string
+          id?: string
+          response_kind?: Database["public"]["Enums"]["response_kind"]
+          response_text?: string | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_commands_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_room_installs: {
+        Row: {
+          bot_id: string
+          id: string
+          installed_at: string
+          installed_by: string
+          room_id: string
+        }
+        Insert: {
+          bot_id: string
+          id?: string
+          installed_at?: string
+          installed_by: string
+          room_id: string
+        }
+        Update: {
+          bot_id?: string
+          id?: string
+          installed_at?: string
+          installed_by?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_room_installs_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_room_installs_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_telegram_configs: {
+        Row: {
+          bot_id: string
+          clone_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          bot_id: string
+          clone_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          bot_id?: string
+          clone_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_telegram_configs_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: true
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_telegram_configs_clone_id_fkey"
+            columns: ["clone_id"]
+            isOneToOne: false
+            referencedRelation: "bot_clones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bots: {
+        Row: {
+          ai_enabled: boolean
+          ai_persona: string | null
+          avatar_url: string | null
+          bot_type: Database["public"]["Enums"]["bot_type"]
+          created_at: string
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean
+          owner_id: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          ai_enabled?: boolean
+          ai_persona?: string | null
+          avatar_url?: string | null
+          bot_type?: Database["public"]["Enums"]["bot_type"]
+          created_at?: string
+          description?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean
+          owner_id: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          ai_enabled?: boolean
+          ai_persona?: string | null
+          avatar_url?: string | null
+          bot_type?: Database["public"]["Enums"]["bot_type"]
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          owner_id?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
+          bot_id: string | null
+          buttons: Json | null
           id: string
           message: string
+          reply_to_message_id: string | null
           room_id: string
+          sender_kind: Database["public"]["Enums"]["sender_kind"]
           timestamp: string
           user_id: string
         }
         Insert: {
+          bot_id?: string | null
+          buttons?: Json | null
           id?: string
           message: string
+          reply_to_message_id?: string | null
           room_id: string
+          sender_kind?: Database["public"]["Enums"]["sender_kind"]
           timestamp?: string
           user_id: string
         }
         Update: {
+          bot_id?: string | null
+          buttons?: Json | null
           id?: string
           message?: string
+          reply_to_message_id?: string | null
           room_id?: string
+          sender_kind?: Database["public"]["Enums"]["sender_kind"]
           timestamp?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "chat_messages_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "chat_messages_room_id_fkey"
             columns: ["room_id"]
@@ -809,7 +996,10 @@ export type Database = {
       room_is_public: { Args: { _room: string }; Returns: boolean }
     }
     Enums: {
+      bot_type: "in_app" | "telegram_clone"
+      response_kind: "static" | "music_play" | "music_queue" | "ai"
       room_role: "owner" | "admin" | "member"
+      sender_kind: "user" | "bot"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -937,7 +1127,10 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      bot_type: ["in_app", "telegram_clone"],
+      response_kind: ["static", "music_play", "music_queue", "ai"],
       room_role: ["owner", "admin", "member"],
+      sender_kind: ["user", "bot"],
     },
   },
 } as const
