@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePlayer } from '@/contexts/PlayerContext';
 
 interface MusicVisualizerProps {
@@ -6,152 +6,171 @@ interface MusicVisualizerProps {
   className?: string;
 }
 
+// Module-level cache so we never call createMediaElementSource twice on the
+// same <audio> element (that throws InvalidStateError).
+let sharedCtx: AudioContext | null = null;
+let sharedAnalyser: AnalyserNode | null = null;
+let sourceAttached = false;
+
+const tryAttachAnalyser = (): AnalyserNode | null => {
+  if (sharedAnalyser) return sharedAnalyser;
+  const audio = document.querySelector('audio') as HTMLAudioElement | null;
+  if (!audio) return null;
+  try {
+    const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
+    if (!Ctx) return null;
+    sharedCtx = sharedCtx ?? new Ctx();
+    const analyser = sharedCtx.createAnalyser();
+    analyser.fftSize = 256;
+    if (!sourceAttached) {
+      const src = sharedCtx.createMediaElementSource(audio);
+      src.connect(analyser);
+      analyser.connect(sharedCtx.destination);
+      sourceAttached = true;
+    }
+    sharedAnalyser = analyser;
+    return analyser;
+  } catch {
+    return null;
+  }
+};
+
 const MusicVisualizer = ({ mode = 'bars', className = '' }: MusicVisualizerProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-  const animationRef = useRef<number>();
-  const { isPlaying } = usePlayer();
+  const rafRef = useRef<number>();
+  const { isPlaying, currentTrack } = usePlayer();
 
   useEffect(() => {
-    // Initialize audio context and analyser
-    const audio = document.querySelector('audio');
-    if (!audio || !isPlaying) return;
-
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const analyserNode = ctx.createAnalyser();
-    analyserNode.fftSize = 256;
-
-    const source = ctx.createMediaElementSource(audio);
-    source.connect(analyserNode);
-    analyserNode.connect(ctx.destination);
-
-    setAudioContext(ctx);
-    setAnalyser(analyserNode);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (!analyser || !canvasRef.current) return;
-
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    // Resize canvas to its display size for crisp rendering.
+    const resize = () => {
+      const { clientWidth, clientHeight } = canvas;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(clientWidth * dpr));
+      canvas.height = Math.max(1, Math.floor(clientHeight * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
 
-    const draw = () => {
-      analyser.getByteFrequencyData(dataArray);
+    const analyser = tryAttachAnalyser();
+    if (analyser && sharedCtx?.state === 'suspended') sharedCtx.resume().catch(() => {});
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const BINS = 64;
+    const freq = analyser ? new Uint8Array(analyser.frequencyBinCount) : null;
+    const fake = new Uint8Array(BINS);
 
-      if (mode === 'bars') {
-        drawBars(ctx, dataArray, canvas.width, canvas.height);
-      } else if (mode === 'circular') {
-        drawCircular(ctx, dataArray, canvas.width, canvas.height);
-      } else if (mode === 'wave') {
-        drawWave(ctx, dataArray, canvas.width, canvas.height);
+    const fillFake = (t: number) => {
+      const active = isPlaying ? 1 : 0.15;
+      for (let i = 0; i < BINS; i++) {
+        const base = Math.sin(t * 0.002 + i * 0.35) * 0.5 + 0.5;
+        const wobble = Math.sin(t * 0.005 + i * 0.12) * 0.25 + 0.25;
+        const rolloff = 1 - i / BINS * 0.6;
+        fake[i] = Math.floor((base * 0.6 + wobble * 0.4) * 255 * rolloff * active);
       }
-
-      animationRef.current = requestAnimationFrame(draw);
     };
 
-    draw();
+    const draw = (t: number) => {
+      let data: Uint8Array;
+      if (analyser && freq) {
+        analyser.getByteFrequencyData(freq);
+        // If we got only zeros (e.g. YouTube iframe path), fall back to fake.
+        let sum = 0;
+        for (let i = 0; i < freq.length; i++) sum += freq[i];
+        if (sum === 0) { fillFake(t); data = fake; }
+        else data = freq;
+      } else {
+        fillFake(t);
+        data = fake;
+      }
+
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      if (mode === 'bars') drawBars(ctx, data, w, h);
+      else if (mode === 'circular') drawCircular(ctx, data, w, h);
+      else drawWave(ctx, data, w, h);
+
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    rafRef.current = requestAnimationFrame(draw);
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      ro.disconnect();
     };
-  }, [analyser, mode]);
+  }, [mode, isPlaying, currentTrack?.id]);
 
-  const drawBars = (ctx: CanvasRenderingContext2D, data: Uint8Array, width: number, height: number) => {
-    const barWidth = (width / data.length) * 2.5;
-    let x = 0;
+  return <canvas ref={canvasRef} className={`w-full h-full block ${className}`} />;
+};
 
-    for (let i = 0; i < data.length; i++) {
-      const barHeight = (data[i] / 255) * height;
+const barColor = (i: number, n: number) => {
+  const shade = 40 + Math.floor((i / n) * 55);
+  return `hsl(0 0% ${shade}%)`;
+};
 
-      const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
-      gradient.addColorStop(0, 'hsl(193, 100%, 50%)');
-      gradient.addColorStop(0.5, 'hsl(85, 100%, 50%)');
-      gradient.addColorStop(1, 'hsl(320, 100%, 60%)');
+const drawBars = (ctx: CanvasRenderingContext2D, data: Uint8Array, width: number, height: number) => {
+  const n = Math.min(data.length, 64);
+  const gap = 2;
+  const barW = (width - gap * (n - 1)) / n;
+  for (let i = 0; i < n; i++) {
+    const v = data[i] / 255;
+    const barH = Math.max(2, v * height * 0.95);
+    const x = i * (barW + gap);
+    const y = height - barH;
+    ctx.fillStyle = barColor(i, n);
+    ctx.fillRect(x, y, barW, barH);
+  }
+};
 
-      ctx.fillStyle = gradient;
-      ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+const drawCircular = (ctx: CanvasRenderingContext2D, data: Uint8Array, width: number, height: number) => {
+  const cx = width / 2;
+  const cy = height / 2;
+  const radius = Math.min(width, height) / 3.2;
+  ctx.strokeStyle = 'hsl(0 0% 30%)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
 
-      x += barWidth + 1;
-    }
-  };
-
-  const drawCircular = (ctx: CanvasRenderingContext2D, data: Uint8Array, width: number, height: number) => {
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const radius = Math.min(width, height) / 3;
-
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-    ctx.strokeStyle = 'rgba(0, 212, 170, 0.2)';
+  const n = Math.min(data.length, 96);
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const v = data[i] / 255;
+    const len = v * radius * 0.9;
+    const x1 = cx + Math.cos(angle) * radius;
+    const y1 = cy + Math.sin(angle) * radius;
+    const x2 = cx + Math.cos(angle) * (radius + len);
+    const y2 = cy + Math.sin(angle) * (radius + len);
+    ctx.strokeStyle = barColor(i, n);
     ctx.lineWidth = 2;
-    ctx.stroke();
-
-    for (let i = 0; i < data.length; i++) {
-      const angle = (i / data.length) * Math.PI * 2;
-      const barHeight = (data[i] / 255) * (radius * 0.8);
-
-      const x1 = centerX + Math.cos(angle) * radius;
-      const y1 = centerY + Math.sin(angle) * radius;
-      const x2 = centerX + Math.cos(angle) * (radius + barHeight);
-      const y2 = centerY + Math.sin(angle) * (radius + barHeight);
-
-      const hue = (i / data.length) * 120 + 160;
-      ctx.strokeStyle = `hsl(${hue}, 100%, 50%)`;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    }
-  };
-
-  const drawWave = (ctx: CanvasRenderingContext2D, data: Uint8Array, width: number, height: number) => {
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'hsl(193, 100%, 50%)';
     ctx.beginPath();
-
-    const sliceWidth = width / data.length;
-    let x = 0;
-
-    for (let i = 0; i < data.length; i++) {
-      const v = data[i] / 255.0;
-      const y = v * height;
-
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
-
-      x += sliceWidth;
-    }
-
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
     ctx.stroke();
-  };
+  }
+};
 
-  return (
-    <canvas
-      ref={canvasRef}
-      width={800}
-      height={400}
-      className={`w-full h-full ${className}`}
-    />
-  );
+const drawWave = (ctx: CanvasRenderingContext2D, data: Uint8Array, width: number, height: number) => {
+  ctx.strokeStyle = 'hsl(0 0% 85%)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const n = data.length;
+  const slice = width / (n - 1);
+  for (let i = 0; i < n; i++) {
+    const v = data[i] / 255;
+    const y = height / 2 + (v - 0.5) * height * 0.9;
+    const x = i * slice;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
 };
 
 export default MusicVisualizer;
