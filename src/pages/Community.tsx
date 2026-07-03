@@ -134,7 +134,7 @@ const Community = () => {
                      onKeyDown={(e) => e.key === 'Enter' && send()}
                      placeholder={myRole ? 'Message…' : 'Join to send messages'}
                      disabled={!myRole} />
-              <Button onClick={send} disabled={!myRole || !text.trim()}><Send className="w-4 h-4" /></Button>
+              <Button onClick={() => send()} disabled={!myRole || !text.trim()}><Send className="w-4 h-4" /></Button>
             </div>
           </>
         )}
