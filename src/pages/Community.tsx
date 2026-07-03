@@ -12,8 +12,10 @@ import MembersPanel from '@/components/Community/MembersPanel';
 import VoiceBar from '@/components/Community/VoiceBar';
 import { toast } from 'sonner';
 import { fetchProfiles, Profile } from '@/lib/profiles';
+import { Bot, fetchInstalledBots } from '@/lib/bots';
 
-type Msg = { id: string; user_id: string; message: string; timestamp: string };
+type Msg = { id: string; user_id: string; message: string; timestamp: string; sender_kind?: 'user' | 'bot'; bot_id?: string | null; buttons?: { label: string; payload: string }[] | null };
+
 
 const Community = () => {
   const { user, loading } = useAuth();
