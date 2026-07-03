@@ -20,7 +20,9 @@ import NotFound from "./pages/NotFound";
 import DeveloperPortal from "./pages/DeveloperPortal";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import BotFather from "./pages/BotFather";
 import StaticBackground from "./components/StaticBackground";
+
 import { useEffect } from "react";
 
 const queryClient = new QueryClient();
