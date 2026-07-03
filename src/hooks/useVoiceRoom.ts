@@ -70,8 +70,11 @@ export function useVoiceRoom(roomId: string | null, userId: string | null) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       localStream.current = stream;
-    } catch {
-      throw new Error('Microphone permission denied');
+    } catch (err: any) {
+      const name = err?.name || 'MicError';
+      const e = new Error(name);
+      (e as any).code = name;
+      throw e;
     }
     // Register presence
     await (supabase as any).from('voice_participants').upsert(
@@ -84,6 +87,7 @@ export function useVoiceRoom(roomId: string | null, userId: string | null) {
     (existing || []).forEach((row: any) => createPeer(row.user_id, true));
     setConnected(true);
   }, [roomId, userId, connected, createPeer]);
+
 
   const leave = useCallback(async () => {
     localStream.current?.getTracks().forEach((t) => t.stop());
