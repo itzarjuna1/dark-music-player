@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Home, Search, Library, User, Settings, Clock, Sparkles, Users, Crown, Code, Menu, X } from 'lucide-react';
+import { Home, Search, Library, User, Settings, Clock, Sparkles, Users, Crown, Code, Menu, X, Bot } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import WallpaperSettings from '@/components/WallpaperSettings';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -12,11 +12,13 @@ const navItems = [
   { to: '/discover', icon: Sparkles, label: 'Discover' },
   { to: '/library', icon: Library, label: 'Your Library' },
   { to: '/community', icon: Users, label: 'Community' },
+  { to: '/botfather', icon: Bot, label: 'BotFather' },
   { to: '/history', icon: Clock, label: 'History' },
   { to: '/developer', icon: Code, label: 'Developer Portal', highlight: 'dev' as const },
   { to: '/premium', icon: Crown, label: 'Premium', highlight: 'premium' as const },
   { to: '/profile', icon: Settings, label: 'Profile' },
 ];
+
 
 const Sidebar = () => {
   const [open, setOpen] = useState(false);
